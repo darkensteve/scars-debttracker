@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "SCARS",
+    "slug": "debttracker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.debttracker.app"
+    },
+    "android": {
+      "package": "com.debttracker.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#1565C0"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "04a352d9-4932-4dd2-bdb2-70988adf6c6d"
+      }
+    }
+  }
+}

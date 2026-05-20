@@ -1,0 +1,6 @@
+# Ignore anything outside the app itself
+AppData/
+node_modules/
+.expo/
+dist/
+backend/

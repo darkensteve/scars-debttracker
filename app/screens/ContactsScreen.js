@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, Image, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Card, FAB, Searchbar, Text } from 'react-native-paper';
+import { Card, Searchbar, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useDebt } from '../context/DebtContext';
@@ -82,7 +82,11 @@ export default function ContactsScreen({ navigation }) {
                     onPress={() => handleAvatarPress(item)}
                   >
                     {item.photoUri ? (
-                      <Image source={{ uri: item.photoUri }} style={styles.avatarImage} />
+                      <Image
+                        source={{ uri: item.photoUri }}
+                        style={styles.avatarImage}
+                        onError={() => updateContact(item.id, { photoUri: null })}
+                      />
                     ) : (
                       <View style={styles.avatar}>
                         <Text style={styles.avatarText}>
@@ -101,8 +105,7 @@ export default function ContactsScreen({ navigation }) {
                     )}
                     {latest ? (
                       <Text style={styles.activityMeta}>
-                        {latest.type === 'payment' ? 'Last paid: ' : 'Last record: '}
-                        {formatDateTime(latest.date)}
+                        Last activity: {formatDateTime(latest.date)}
                       </Text>
                     ) : (
                       <Text style={styles.activityMeta}>No records yet</Text>
@@ -122,7 +125,7 @@ export default function ContactsScreen({ navigation }) {
                         : formatMoney(balance, settings.currency)}
                     </Text>
                     <Pressable
-                      hitSlop={8}
+                      hitSlop={12}
                       onPress={() =>
                         navigation.navigate('ContactDetail', { contactId: item.id })
                       }
@@ -141,12 +144,12 @@ export default function ContactsScreen({ navigation }) {
         }}
       />
 
-      <FAB
-        icon="plus"
-        style={styles.fab}
+      <Pressable
+        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
         onPress={() => navigation.navigate('AddContact')}
-        label="Add person"
-      />
+      >
+        <MaterialCommunityIcons name="plus" size={28} color="#FFFFFF" />
+      </Pressable>
     </View>
   );
 }
@@ -159,6 +162,11 @@ const styles = StyleSheet.create({
   },
   searchBar: {
     marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    elevation: 0,
   },
   list: {
     paddingBottom: 88,
@@ -194,7 +202,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 20,
     color: colors.primary,
-    fontWeight: '700',
+    fontFamily: 'Poppins_700Bold',
   },
   contactInfo: {
     flex: 1,
@@ -211,7 +219,7 @@ const styles = StyleSheet.create({
   },
   balance: {
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'Poppins_700Bold',
     color: colors.textSecondary,
   },
   balanceOwed: {
@@ -219,12 +227,12 @@ const styles = StyleSheet.create({
   },
   balanceSettled: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'Poppins_600SemiBold',
     color: colors.success,
   },
   contactName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Poppins_600SemiBold',
     color: colors.text,
   },
   phone: {
@@ -240,9 +248,23 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    right: 16,
-    bottom: 16,
+    right: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fabPressed: {
+    backgroundColor: colors.primaryDark,
+    shadowOpacity: 0.2,
   },
   empty: {
     textAlign: 'center',

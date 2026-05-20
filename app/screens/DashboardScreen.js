@@ -1,20 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HeroInsightsCarousel from '../components/HeroInsightsCarousel';
 import { useDebt } from '../context/DebtContext';
-import { formatDateTime, formatMoney, TRANSACTION_LABELS } from '../utils/format';
+import { formatMoney } from '../utils/format';
 import { colors } from '../theme/colors';
 
-const ROW_GAP = 8;
-const PAGE_SIZE = 5;
-const TYPE_META = {
-  loan: { color: colors.danger, icon: 'cash-plus', bg: '#FEF2F2' },
-  purchase: { color: colors.warning, icon: 'cart-outline', bg: '#FFFBEB' },
-  payment: { color: colors.success, icon: 'check-circle-outline', bg: '#ECFDF5' },
-};
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -23,11 +16,11 @@ function getGreeting() {
   return 'Good evening';
 }
 
-function StatCard({ icon, label, value, accent }) {
+function StatCard({ icon, label, value, accent, iconColor }) {
   return (
     <View style={styles.statCard}>
       <View style={[styles.statIconWrap, { backgroundColor: accent }]}>
-        <MaterialCommunityIcons name={icon} size={18} color={colors.primary} />
+        <MaterialCommunityIcons name={icon} size={18} color={iconColor || colors.primary} />
       </View>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel} numberOfLines={1}>
@@ -37,138 +30,63 @@ function StatCard({ icon, label, value, accent }) {
   );
 }
 
-function ActivityPagination({ page, totalPages, onPrev, onNext }) {
-  const atStart = page === 0;
-  const atEnd = page >= totalPages - 1;
 
-  return (
-    <View style={styles.pagination}>
-      <Pressable
-        onPress={onPrev}
-        disabled={atStart}
-        style={({ pressed }) => [
-          styles.pageArrow,
-          atStart && styles.pageArrowDisabled,
-          pressed && !atStart && styles.pageArrowPressed,
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel="Previous page"
-      >
-        <MaterialCommunityIcons
-          name="chevron-left"
-          size={20}
-          color={atStart ? colors.textMuted : colors.primary}
-        />
-      </Pressable>
-
-      <Text style={styles.pageStatusText}>
-        {page + 1} / {totalPages}
-      </Text>
-
-      <Pressable
-        onPress={onNext}
-        disabled={atEnd}
-        style={({ pressed }) => [
-          styles.pageArrow,
-          styles.pageArrowNext,
-          atEnd && styles.pageArrowDisabled,
-          pressed && !atEnd && styles.pageArrowNextPressed,
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel="Next page"
-      >
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={20}
-          color={atEnd ? colors.textMuted : '#FFFFFF'}
-        />
-      </Pressable>
-    </View>
-  );
-}
-
-function ActivityRow({ item, contactName, currency }) {
-  const meta = TYPE_META[item.type] || TYPE_META.loan;
-
-  return (
-    <View style={styles.txRow}>
-      <View style={styles.txAvatar}>
-        <Text style={styles.txAvatarText}>{contactName.charAt(0).toUpperCase()}</Text>
-      </View>
-      <View style={styles.txBody}>
-        <Text style={styles.txName} numberOfLines={1}>
-          {contactName}
-        </Text>
-        <View style={styles.txMetaRow}>
-          <View style={[styles.typeBadge, { backgroundColor: meta.bg }]}>
-            <MaterialCommunityIcons name={meta.icon} size={12} color={meta.color} />
-            <Text style={[styles.typeBadgeText, { color: meta.color }]}>
-              {TRANSACTION_LABELS[item.type]}
-            </Text>
-          </View>
-          <Text style={styles.txDate}>{formatDateTime(item.date)}</Text>
-        </View>
-      </View>
-      <Text style={[styles.txAmount, { color: meta.color }]}>
-        {item.type === 'payment' ? '−' : '+'}
-        {formatMoney(item.amount, currency)}
-      </Text>
-    </View>
-  );
-}
-
-export default function DashboardScreen() {
+export default function DashboardScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const {
-    recentTransactions,
     transactions,
     contacts,
     settings,
     totalOwed,
     contactBalance: getBalance,
   } = useDebt();
-  const [activityPage, setActivityPage] = useState(0);
-  const prevTxCount = useRef(recentTransactions.length);
-
   const debtorsCount = useMemo(
     () => contacts.filter((c) => getBalance(c.id) > 0).length,
     [contacts, getBalance]
   );
 
-  const totalActivityPages = useMemo(
-    () => Math.max(1, Math.ceil(recentTransactions.length / PAGE_SIZE)),
-    [recentTransactions.length]
-  );
-
-  const displayTransactions = useMemo(() => {
-    const start = activityPage * PAGE_SIZE;
-    return recentTransactions.slice(start, start + PAGE_SIZE);
-  }, [recentTransactions, activityPage]);
-
-  useEffect(() => {
-    if (activityPage > totalActivityPages - 1) {
-      setActivityPage(Math.max(0, totalActivityPages - 1));
+  const dueThisWeek = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const seen = new Set();
+    const result = [];
+    for (const tx of transactions) {
+      if (!tx.dueDate || seen.has(tx.contactId)) continue;
+      const due = new Date(tx.dueDate);
+      if (due <= weekEnd) {
+        seen.add(tx.contactId);
+        result.push({
+          contactId: tx.contactId,
+          name: contacts.find((c) => c.id === tx.contactId)?.name || 'Unknown',
+          dueDate: tx.dueDate,
+          isOverdue: due < now,
+        });
+      }
     }
-  }, [activityPage, totalActivityPages]);
-
-  useEffect(() => {
-    if (recentTransactions.length > prevTxCount.current) {
-      setActivityPage(0);
-    }
-    prevTxCount.current = recentTransactions.length;
-  }, [recentTransactions.length]);
-
-  const getContactName = (contactId) =>
-    contacts.find((c) => c.id === contactId)?.name || 'Unknown';
+    return result.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+  }, [transactions, contacts]);
 
   const businessName = settings.businessName || 'SCARS';
-  const showPagination = recentTransactions.length > PAGE_SIZE;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.topSection}>
-        <Text style={styles.greeting}>{getGreeting()}</Text>
-        <Text style={styles.businessName}>{businessName}</Text>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.greeting}>{getGreeting()}</Text>
+            <Text style={styles.businessName}>{businessName}</Text>
+          </View>
+          <Pressable
+            onPress={() => navigation.navigate('Settings')}
+            style={({ pressed }) => [styles.settingsBtn, pressed && styles.settingsBtnPressed]}
+            accessibilityLabel="Settings"
+            // web tooltip on hover
+            {...({ title: 'Settings' })}
+          >
+            <MaterialCommunityIcons name="cog-outline" size={22} color={colors.textSecondary} />
+          </Pressable>
+        </View>
 
         <HeroInsightsCarousel
           compact
@@ -193,54 +111,63 @@ export default function DashboardScreen() {
             accent="#E0F2FE"
           />
           <StatCard
-            icon="receipt-text-outline"
-            label="Records"
-            value={String(recentTransactions.length)}
-            accent="#F0FDF4"
+            icon={dueThisWeek.length > 0 ? 'calendar-alert' : 'calendar-check-outline'}
+            label="Due soon"
+            value={String(dueThisWeek.length)}
+            accent={dueThisWeek.length > 0 ? '#FEF9C3' : '#F0FDF4'}
+            iconColor={dueThisWeek.length > 0 ? colors.warning : colors.success}
           />
         </View>
+
       </View>
 
-      <View style={styles.activitySection}>
+      <View style={[styles.dueSection, dueThisWeek.length > 0 && styles.dueSectionExpanded]}>
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>Recent activity</Text>
-          {showPagination ? (
-            <ActivityPagination
-              page={activityPage}
-              totalPages={totalActivityPages}
-              onPrev={() => setActivityPage((p) => Math.max(0, p - 1))}
-              onNext={() =>
-                setActivityPage((p) => Math.min(totalActivityPages - 1, p + 1))
-              }
-            />
-          ) : null}
+          <Text style={styles.sectionTitle}>Due this week</Text>
+          {dueThisWeek.length > 0 ? (
+            <View style={styles.dueBadge}>
+              <Text style={styles.dueBadgeText}>{dueThisWeek.length}</Text>
+            </View>
+          ) : (
+            <View style={styles.allClearPill}>
+              <MaterialCommunityIcons name="check-circle-outline" size={13} color={colors.success} />
+              <Text style={styles.allClearText}>All clear</Text>
+            </View>
+          )}
         </View>
 
-        {recentTransactions.length === 0 ? (
+        {dueThisWeek.length === 0 ? (
           <View style={styles.emptyCard}>
-            <MaterialCommunityIcons
-              name="notebook-outline"
-              size={32}
-              color={colors.textMuted}
-            />
-            <Text style={styles.emptyTitle}>No activity yet</Text>
+            <MaterialCommunityIcons name="calendar-check-outline" size={24} color={colors.success} />
+            <Text style={styles.emptyTitle}>No one is due this week.</Text>
           </View>
         ) : (
-          <View style={styles.activityList}>
-            {Array.from({ length: PAGE_SIZE }).map((_, i) => {
-              const item = displayTransactions[i];
-              if (item) {
-                return (
-                  <ActivityRow
-                    key={item.id}
-                    item={item}
-                    contactName={getContactName(item.contactId)}
-                    currency={settings.currency}
-                  />
-                );
-              }
-              return <View key={`empty-${i}`} style={styles.txRowGhost} />;
-            })}
+          <View style={styles.dueList}>
+            {dueThisWeek.map((d, i) => (
+              <View
+                key={d.contactId}
+                style={[styles.dueRow, d.isOverdue && styles.dueRowOverdue]}
+              >
+                <View style={[styles.dueAvatar, d.isOverdue && styles.dueAvatarOverdue]}>
+                  <Text style={[styles.dueAvatarText, d.isOverdue && styles.dueAvatarTextOverdue]}>
+                    {d.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.dueRowBody}>
+                  <Text style={styles.dueRowName} numberOfLines={1}>{d.name}</Text>
+                  <Text style={[styles.dueRowDate, d.isOverdue && styles.dueRowDateOverdue]}>
+                    {d.isOverdue
+                      ? 'Overdue'
+                      : `Due ${new Date(d.dueDate).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                  </Text>
+                </View>
+                <MaterialCommunityIcons
+                  name={d.isOverdue ? 'alert-circle-outline' : 'clock-outline'}
+                  size={20}
+                  color={d.isOverdue ? colors.danger : colors.warning}
+                />
+              </View>
+            ))}
           </View>
         )}
       </View>
@@ -259,17 +186,36 @@ const styles = StyleSheet.create({
   topSection: {
     flexShrink: 0,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  settingsBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  settingsBtnPressed: {
+    backgroundColor: colors.primaryLight,
+  },
   greeting: {
     fontSize: 12,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontFamily: 'Poppins_500Medium',
   },
   businessName: {
     fontSize: 22,
-    fontWeight: '700',
+    fontFamily: 'Poppins_700Bold',
     color: colors.text,
     marginTop: 0,
-    marginBottom: 8,
   },
   statsRow: {
     flexDirection: 'row',
@@ -296,152 +242,132 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: 'Poppins_700Bold',
     color: colors.text,
   },
   statLabel: {
     fontSize: 10,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontFamily: 'Poppins_500Medium',
     textAlign: 'center',
   },
-  activitySection: {
+  dueSection: {
+    flexShrink: 1,
+  },
+  dueSectionExpanded: {
     flex: 1,
     minHeight: 0,
   },
   sectionHead: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
     marginBottom: 8,
     flexShrink: 0,
   },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'Poppins_700Bold',
     color: colors.text,
   },
-  activityList: {
-    flex: 1,
-    minHeight: 0,
-    gap: ROW_GAP,
+  dueBadge: {
+    backgroundColor: colors.danger,
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
   },
-  pagination: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  pageArrow: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  pageArrowNext: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  pageArrowDisabled: {
-    opacity: 0.35,
-  },
-  pageArrowPressed: {
-    backgroundColor: colors.primaryLight,
-  },
-  pageArrowNextPressed: {
-    backgroundColor: colors.primaryDark,
-  },
-  pageStatusText: {
+  dueBadgeText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: colors.textMuted,
-    minWidth: 28,
-    textAlign: 'center',
+    fontFamily: 'Poppins_700Bold',
+    color: '#FFFFFF',
   },
-  txRow: {
+  dueList: {
+    flex: 1,
+    gap: 8,
+    minHeight: 0,
+  },
+  dueRow: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFBEB',
     paddingHorizontal: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#FDE68A',
   },
-  txRowGhost: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    backgroundColor: 'transparent',
+  dueRowOverdue: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
   },
-  txAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primaryLight,
+  dueAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF9C3',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
-  txAvatarText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.primary,
+  dueAvatarOverdue: {
+    backgroundColor: '#FEE2E2',
   },
-  txBody: {
+  dueAvatarText: {
+    fontSize: 16,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.warning,
+  },
+  dueAvatarTextOverdue: {
+    color: colors.danger,
+  },
+  dueRowBody: {
     flex: 1,
     marginRight: 8,
-    minWidth: 0,
   },
-  txName: {
-    fontSize: 15,
-    fontWeight: '600',
+  dueRowName: {
+    fontSize: 14,
+    fontFamily: 'Poppins_600SemiBold',
     color: colors.text,
   },
-  txMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    gap: 8,
-    flexWrap: 'wrap',
+  dueRowDate: {
+    fontSize: 12,
+    color: colors.warning,
+    fontFamily: 'Poppins_500Medium',
+    marginTop: 2,
   },
-  typeBadge: {
+  dueRowDateOverdue: {
+    color: colors.danger,
+  },
+  allClearPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#6EE7B7',
+    borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
   },
-  typeBadgeText: {
+  allClearText: {
     fontSize: 11,
-    fontWeight: '600',
-  },
-  txDate: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  txAmount: {
-    fontSize: 15,
-    fontWeight: '700',
-    flexShrink: 0,
+    fontFamily: 'Poppins_600SemiBold',
+    color: colors.success,
   },
   emptyCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 20,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   emptyTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 8,
+    fontSize: 13,
+    color: colors.textMuted,
+    fontFamily: 'Poppins_500Medium',
   },
 });

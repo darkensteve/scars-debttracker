@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Button, Card, IconButton, Text } from 'react-native-paper';
+import { Card, IconButton, Text } from 'react-native-paper';
 import { useDebt } from '../context/DebtContext';
 import { getContactHistorySummary } from '../utils/contactHistory';
 import { formatDate, formatDateTime, formatMoney, TRANSACTION_LABELS } from '../utils/format';
@@ -81,14 +81,33 @@ export default function ContactDetailScreen({ route, navigation }) {
   }
 
   const confirmDelete = (transaction) => {
-    Alert.alert('Delete transaction?', 'This will update their balance.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => deleteTransaction(transaction.id),
-      },
-    ]);
+    const meta = TYPE_META[transaction.type];
+    const formatted = `${settings.currency || '₱'}${Number(transaction.amount).toLocaleString()}`;
+    const typeLabel =
+      transaction.type === 'loan'
+        ? 'money lent'
+        : transaction.type === 'purchase'
+        ? 'purchase'
+        : 'payment';
+    Alert.alert(
+      'Remove this record?',
+      `This will permanently delete the ${formatted} ${typeLabel} entry and update ${contact.name}'s balance. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteTransaction(transaction.id);
+            Alert.alert(
+              'Record removed',
+              `The ${formatted} ${typeLabel} entry has been deleted and ${contact.name}'s balance has been updated.`,
+              [{ text: 'OK' }]
+            );
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -125,15 +144,25 @@ export default function ContactDetailScreen({ route, navigation }) {
                 ? 'Current balance — you owe them'
                 : 'All settled up'}
             </Text>
-            <Text
-              style={[
-                styles.balanceAmount,
-                balance > 0 && styles.balanceOwed,
-                balance === 0 && styles.balanceZero,
-              ]}
-            >
-              {formatMoney(balance, settings.currency)}
-            </Text>
+            <View style={styles.balanceRow}>
+              <Text
+                style={[
+                  styles.balanceAmount,
+                  balance > 0 && styles.balanceOwed,
+                  balance === 0 && styles.balanceZero,
+                ]}
+              >
+                {formatMoney(balance, settings.currency)}
+              </Text>
+              <TouchableOpacity
+                style={styles.recordBtn}
+                activeOpacity={0.75}
+                onPress={() => navigation.navigate('AddTransaction', { contactId })}
+              >
+                <MaterialCommunityIcons name="pencil-plus-outline" size={14} color={colors.primary} />
+                <Text style={styles.recordBtnText}>Record</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </Card.Content>
       </Card>
@@ -201,28 +230,25 @@ export default function ContactDetailScreen({ route, navigation }) {
         </Card>
       ) : (
         <>
-        {pagedHistory.map((item, index) => {
+        {Array.from({ length: HISTORY_PAGE_SIZE }).map((_, i) => {
+          const item = pagedHistory[i];
+          if (!item) {
+            return <View key={`ghost-${i}`} style={styles.txCardGhost} />;
+          }
           const meta = TYPE_META[item.type];
-          const isLast = index === pagedHistory.length - 1;
           const dueDateISO = item.dueDate || computeDueDateISO({ type: item.type, createdAtISO: item.date });
           const isDueApplicable = item.type === 'loan' || item.type === 'purchase';
           return (
             <View key={item.id} style={styles.timelineRow}>
               <View style={styles.timelineRail}>
-                <View
-                  style={[styles.timelineDot, { backgroundColor: meta.color }]}
-                />
-                {!isLast ? <View style={styles.timelineLine} /> : null}
+                <View style={[styles.timelineDot, { backgroundColor: meta.color }]} />
+                {i < HISTORY_PAGE_SIZE - 1 ? <View style={styles.timelineLine} /> : null}
               </View>
               <Card style={styles.txCard}>
                 <Card.Content>
                   <View style={styles.txTop}>
                     <View style={[styles.typeBadge, { backgroundColor: meta.bg }]}>
-                      <MaterialCommunityIcons
-                        name={meta.icon}
-                        size={14}
-                        color={meta.color}
-                      />
+                      <MaterialCommunityIcons name={meta.icon} size={14} color={meta.color} />
                       <Text style={[styles.typeBadgeText, { color: meta.color }]}>
                         {TRANSACTION_LABELS[item.type]}
                       </Text>
@@ -233,9 +259,7 @@ export default function ContactDetailScreen({ route, navigation }) {
                     <Text style={styles.txDesc}>{item.description}</Text>
                   ) : null}
                   {isDueApplicable && dueDateISO ? (
-                    <Text style={styles.txDue}>
-                      Due {formatDate(dueDateISO)}
-                    </Text>
+                    <Text style={styles.txDue}>Due {formatDate(dueDateISO)}</Text>
                   ) : null}
                   <View style={styles.txBottom}>
                     <Text style={[styles.txAmount, { color: meta.color }]}>
@@ -257,29 +281,40 @@ export default function ContactDetailScreen({ route, navigation }) {
 
         {totalHistoryPages > 1 ? (
           <View style={styles.pagination}>
-            <Button
-              mode="outlined"
+            <Pressable
               onPress={() => setHistoryPage((p) => Math.max(0, p - 1))}
               disabled={historyPage === 0}
-              style={styles.pageButton}
-              textColor={colors.primary}
+              style={({ pressed }) => [
+                styles.pageArrow,
+                historyPage === 0 && styles.pageArrowDisabled,
+                pressed && historyPage !== 0 && styles.pageArrowPressed,
+              ]}
             >
-              Previous
-            </Button>
+              <MaterialCommunityIcons
+                name="chevron-left"
+                size={20}
+                color={historyPage === 0 ? colors.textMuted : colors.primary}
+              />
+            </Pressable>
             <Text style={styles.pageIndicator}>
-              Page {historyPage + 1} of {totalHistoryPages}
+              {historyPage + 1} / {totalHistoryPages}
             </Text>
-            <Button
-              mode="contained"
-              onPress={() =>
-                setHistoryPage((p) => Math.min(totalHistoryPages - 1, p + 1))
-              }
+            <Pressable
+              onPress={() => setHistoryPage((p) => Math.min(totalHistoryPages - 1, p + 1))}
               disabled={historyPage >= totalHistoryPages - 1}
-              style={styles.pageButton}
-              buttonColor={colors.primary}
+              style={({ pressed }) => [
+                styles.pageArrow,
+                styles.pageArrowNext,
+                historyPage >= totalHistoryPages - 1 && styles.pageArrowDisabled,
+                pressed && historyPage < totalHistoryPages - 1 && styles.pageArrowNextPressed,
+              ]}
             >
-              Next
-            </Button>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={20}
+                color={historyPage >= totalHistoryPages - 1 ? colors.textMuted : '#FFFFFF'}
+              />
+            </Pressable>
           </View>
         ) : null}
         </>
@@ -323,7 +358,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: 'Poppins_700Bold',
     color: colors.primary,
   },
   profileInfo: {
@@ -331,7 +366,7 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: 'Poppins_700Bold',
     color: colors.text,
   },
   phone: {
@@ -354,13 +389,34 @@ const styles = StyleSheet.create({
   balanceLabel: {
     fontSize: 12,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontFamily: 'Poppins_500Medium',
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
   },
   balanceAmount: {
     fontSize: 30,
-    fontWeight: '700',
+    fontFamily: 'Poppins_700Bold',
     color: colors.text,
-    marginTop: 4,
+  },
+  recordBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.primary + '33',
+  },
+  recordBtnText: {
+    fontSize: 13,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.primary,
   },
   balanceOwed: {
     color: colors.primary,
@@ -384,11 +440,11 @@ const styles = StyleSheet.create({
   metaTitle: {
     fontSize: 12,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontFamily: 'Poppins_500Medium',
   },
   metaValue: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'Poppins_700Bold',
     color: colors.text,
     marginTop: 2,
   },
@@ -412,7 +468,7 @@ const styles = StyleSheet.create({
   },
   pillValue: {
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'Poppins_700Bold',
     color: colors.text,
   },
   pillLabel: {
@@ -422,7 +478,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: 'Poppins_700Bold',
     color: colors.text,
   },
   sectionSub: {
@@ -459,6 +515,15 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginBottom: 10,
     backgroundColor: colors.surface,
+    minHeight: 90,
+  },
+  txCardGhost: {
+    flex: 1,
+    minHeight: 90,
+    marginBottom: 10,
+    marginLeft: 34,
+    borderRadius: 14,
+    backgroundColor: 'transparent',
   },
   txTop: {
     flexDirection: 'row',
@@ -477,12 +542,12 @@ const styles = StyleSheet.create({
   },
   typeBadgeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'Poppins_600SemiBold',
   },
   txDate: {
     fontSize: 12,
     color: colors.textMuted,
-    fontWeight: '500',
+    fontFamily: 'Poppins_500Medium',
   },
   txDesc: {
     fontSize: 14,
@@ -494,7 +559,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     marginTop: 8,
-    fontWeight: '500',
+    fontFamily: 'Poppins_500Medium',
   },
   txBottom: {
     flexDirection: 'row',
@@ -504,7 +569,7 @@ const styles = StyleSheet.create({
   },
   txAmount: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins_700Bold',
   },
   emptyCard: {
     borderRadius: 16,
@@ -514,7 +579,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Poppins_600SemiBold',
     marginTop: 12,
     color: colors.text,
   },
@@ -527,20 +592,39 @@ const styles = StyleSheet.create({
   pagination: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: 16,
     marginTop: 8,
     marginBottom: 8,
-    gap: 8,
   },
-  pageButton: {
-    flex: 1,
-    borderRadius: 10,
+  pageArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  pageArrowNext: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  pageArrowDisabled: {
+    opacity: 0.35,
+  },
+  pageArrowPressed: {
+    backgroundColor: colors.primaryLight,
+  },
+  pageArrowNextPressed: {
+    backgroundColor: colors.primaryDark,
   },
   pageIndicator: {
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    fontFamily: 'Poppins_600SemiBold',
+    color: colors.textMuted,
+    minWidth: 40,
     textAlign: 'center',
-    minWidth: 100,
   },
 });

@@ -4,20 +4,29 @@
     "slug": "debttracker",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1A4FD6"
+    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.debttracker.app"
+      "bundleIdentifier": "com.debttracker.app",
+      "icon": "./assets/icon.png"
     },
     "android": {
       "package": "com.debttracker.app",
       "adaptiveIcon": {
-        "backgroundColor": "#1565C0"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1A4FD6"
       }
     },
     "web": {
       "bundler": "metro",
-      "output": "single"
+      "output": "single",
+      "favicon": "./assets/icon.png"
     },
     "plugins": [
       "expo-font"

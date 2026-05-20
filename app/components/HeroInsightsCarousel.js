@@ -152,12 +152,12 @@ const styles = StyleSheet.create({
   heroLabel: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.85)',
-    fontWeight: '500',
+    fontFamily: 'Poppins_500Medium',
     letterSpacing: 0.3,
   },
   heroAmount: {
     fontSize: 34,
-    fontWeight: '700',
+    fontFamily: 'Poppins_700Bold',
     color: '#FFFFFF',
     marginTop: 6,
   },

@@ -6,9 +6,17 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import {
+  useFonts,
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+} from '@expo-google-fonts/poppins';
 
 import { DebtProvider, useDebt } from './app/context/DebtContext';
 import DashboardScreen from './app/screens/DashboardScreen';
+import HistoryScreen from './app/screens/HistoryScreen';
 import ContactsScreen from './app/screens/ContactsScreen';
 import AddTransactionScreen from './app/screens/AddTransactionScreen';
 import SettingsScreen from './app/screens/SettingsScreen';
@@ -22,15 +30,39 @@ import { colors } from './app/theme/colors';
 const SPLASH_MIN_MS = 2400;
 
 const Tab = createBottomTabNavigator();
+const HomeStack = createNativeStackNavigator();
 const ContactsStack = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
+
+function HomeStackScreen() {
+  return (
+    <HomeStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.surface },
+        headerTitleStyle: { fontFamily: 'Poppins_600SemiBold', color: colors.text },
+        headerShadowVisible: false,
+      }}
+    >
+      <HomeStack.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+        options={{ headerShown: false }}
+      />
+      <HomeStack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ title: 'Settings' }}
+      />
+    </HomeStack.Navigator>
+  );
+}
 
 function ContactsStackScreen() {
   return (
     <ContactsStack.Navigator
       screenOptions={{
         headerStyle: { backgroundColor: colors.surface },
-        headerTitleStyle: { fontWeight: '600', color: colors.text },
+        headerTitleStyle: { fontFamily: 'Poppins_600SemiBold', color: colors.text },
         headerShadowVisible: false,
       }}
     >
@@ -49,6 +81,11 @@ function ContactsStackScreen() {
         component={AddContactScreen}
         options={{ title: 'New contact' }}
       />
+      <ContactsStack.Screen
+        name="AddTransaction"
+        component={AddTransactionScreen}
+        options={{ title: 'Record transaction' }}
+      />
     </ContactsStack.Navigator>
   );
 }
@@ -57,12 +94,11 @@ function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ color, size }) => {
+        tabBarIcon: ({ color, size, focused }) => {
           const icons = {
-            Dashboard: 'view-dashboard-outline',
-            People: 'account-group-outline',
-            Add: 'plus-circle-outline',
-            Settings: 'cog-outline',
+            Home: focused ? 'home' : 'home-outline',
+            History: focused ? 'history' : 'history',
+            People: focused ? 'account-group' : 'account-group-outline',
           };
           return (
             <MaterialCommunityIcons
@@ -83,32 +119,25 @@ function MainTabs() {
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '600',
+          fontFamily: 'Poppins_600SemiBold',
         },
-        headerStyle: { backgroundColor: colors.surface },
-        headerTitleStyle: { fontWeight: '600', color: colors.text },
-        headerShadowVisible: false,
+        headerShown: false,
       })}
     >
       <Tab.Screen
-        name="Dashboard"
-        component={DashboardScreen}
-        options={{ headerShown: false, title: 'Home' }}
+        name="Home"
+        component={HomeStackScreen}
+        options={{ title: 'Home' }}
+      />
+      <Tab.Screen
+        name="History"
+        component={HistoryScreen}
+        options={{ headerShown: false, title: 'History' }}
       />
       <Tab.Screen
         name="People"
         component={ContactsStackScreen}
-        options={{ headerShown: false, title: 'People' }}
-      />
-      <Tab.Screen
-        name="Add"
-        component={AddTransactionScreen}
-        options={{ title: 'Add transaction' }}
-      />
-      <Tab.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{ title: 'Settings' }}
+        options={{ title: 'People' }}
       />
     </Tab.Navigator>
   );
@@ -159,6 +188,15 @@ function AppNavigator() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+  });
+
+  if (!fontsLoaded) return null;
+
   return (
     <WebPreviewFrame>
       <SafeAreaProvider>

@@ -136,7 +136,9 @@ export default function PinLockScreen() {
           <MaterialCommunityIcons name="shield-lock-outline" size={36} color={colors.primary} />
         </View>
         <Text style={styles.appName}>SCARS</Text>
-        <Text style={styles.subtitle}>Enter your PIN to continue</Text>
+        <Text style={styles.subtitle}>
+          Enter your PIN to view your records. SCARS only accesses your own data — not Secure Folder or other apps.
+        </Text>
       </View>
 
       {/* 6-dot indicator */}

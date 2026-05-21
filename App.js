@@ -32,6 +32,7 @@ import PinLockScreen from './app/screens/PinLockScreen';
 import WebPreviewFrame from './app/components/WebPreviewFrame';
 import { paperTheme } from './app/theme/paperTheme';
 import { colors } from './app/theme/colors';
+import { useAppSecurity } from './app/hooks/useAppSecurity';
 
 const SPLASH_MIN_MS = 2400;
 
@@ -181,12 +182,20 @@ function MainTabs() {
 
 function AppNavigator() {
   const { isReady } = useDebt();
-  const { isPinEnabled, isUnlocked, isAuthReady } = useAuth();
+  const { isPinEnabled, isUnlocked, isAuthReady, lockApp } = useAuth();
   const [splashVisible, setSplashVisible] = useState(true);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const readyAt = useRef(null);
 
   const bothReady = isReady && isAuthReady;
+
+  useAppSecurity({
+    enabled: true,
+    isLocked: false,
+    onLock: () => {
+      if (isPinEnabled) lockApp();
+    },
+  });
 
   useEffect(() => {
     if (!bothReady) return;

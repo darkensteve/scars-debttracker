@@ -211,9 +211,37 @@ export default function SettingsScreen({ navigation }) {
         <InfoRow icon="shield-check-outline" label="Data privacy" value="Data is tied to your account and stored securely" />
       </View>
 
+      {/* Privacy & how SCARS works */}
+      <View style={styles.card}>
+        <SectionHeader icon="shield-check-outline" title="Privacy & security" />
+        <InfoRow
+          icon="folder-lock-outline"
+          label="Secure Folder"
+          value="SCARS does not open or read Samsung Secure Folder or other apps"
+        />
+        <View style={styles.divider} />
+        <InfoRow
+          icon="eye-off-outline"
+          label="Recent apps"
+          value="Balances stay hidden in the app switcher while SCARS is open"
+        />
+        <View style={styles.divider} />
+        <InfoRow
+          icon="lock-reset"
+          label="Auto-lock"
+          value="PIN required again when you leave the app (if PIN is on)"
+        />
+        <View style={styles.divider} />
+        <InfoRow
+          icon="cloud-lock-outline"
+          label="Your data"
+          value="Records sync to your account over encrypted HTTPS only"
+        />
+      </View>
+
       {/* Security */}
       <View style={styles.card}>
-        <SectionHeader icon="shield-lock-outline" title="Security" />
+        <SectionHeader icon="shield-lock-outline" title="App lock (PIN)" />
 
         <View style={styles.toggleRow}>
           <View style={styles.toggleLeft}>
@@ -221,7 +249,9 @@ export default function SettingsScreen({ navigation }) {
             <View style={styles.toggleText}>
               <Text style={styles.infoLabel}>PIN lock</Text>
               <Text style={styles.infoValue}>
-                {isPinEnabled ? 'App is locked on startup' : 'Disabled — anyone can open the app'}
+                {isPinEnabled
+                  ? 'Required when opening SCARS and after leaving the app'
+                  : 'Recommended — like GCash, keeps names and amounts private'}
               </Text>
             </View>
           </View>

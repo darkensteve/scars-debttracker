@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HeroInsightsCarousel from '../components/HeroInsightsCarousel';
+import PinSetupPrompt from '../components/PinSetupPrompt';
 import { useDebt } from '../context/DebtContext';
 import { formatMoney } from '../utils/format';
 import { colors } from '../theme/colors';
@@ -71,6 +72,7 @@ export default function DashboardScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <PinSetupPrompt navigation={navigation} />
       <View style={styles.topSection}>
         <View style={styles.headerRow}>
           <View>

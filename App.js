@@ -15,6 +15,7 @@ import {
 } from '@expo-google-fonts/poppins';
 
 import { DebtProvider, useDebt } from './app/context/DebtContext';
+import { AuthProvider, useAuth } from './app/context/AuthContext';
 import DashboardScreen from './app/screens/DashboardScreen';
 import HistoryScreen from './app/screens/HistoryScreen';
 import ContactsScreen from './app/screens/ContactsScreen';
@@ -22,7 +23,9 @@ import AddTransactionScreen from './app/screens/AddTransactionScreen';
 import SettingsScreen from './app/screens/SettingsScreen';
 import ContactDetailScreen from './app/screens/ContactDetailScreen';
 import AddContactScreen from './app/screens/AddContactScreen';
+import PinSetupScreen from './app/screens/PinSetupScreen';
 import SplashScreen from './app/screens/SplashScreen';
+import PinLockScreen from './app/screens/PinLockScreen';
 import WebPreviewFrame from './app/components/WebPreviewFrame';
 import { paperTheme } from './app/theme/paperTheme';
 import { colors } from './app/theme/colors';
@@ -52,6 +55,11 @@ function HomeStackScreen() {
         name="Settings"
         component={SettingsScreen}
         options={{ title: 'Settings' }}
+      />
+      <HomeStack.Screen
+        name="PinSetup"
+        component={PinSetupScreen}
+        options={{ title: 'Set PIN' }}
       />
     </HomeStack.Navigator>
   );
@@ -145,12 +153,15 @@ function MainTabs() {
 
 function AppNavigator() {
   const { isReady } = useDebt();
+  const { isPinEnabled, isUnlocked, isAuthReady } = useAuth();
   const [splashVisible, setSplashVisible] = useState(true);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const readyAt = useRef(null);
 
+  const bothReady = isReady && isAuthReady;
+
   useEffect(() => {
-    if (!isReady) return;
+    if (!bothReady) return;
     if (!readyAt.current) readyAt.current = Date.now();
 
     const elapsed = Date.now() - readyAt.current;
@@ -167,7 +178,9 @@ function AppNavigator() {
     }, wait);
 
     return () => clearTimeout(timer);
-  }, [isReady, fadeAnim]);
+  }, [bothReady, fadeAnim]);
+
+  const showPinLock = !splashVisible && isPinEnabled && !isUnlocked;
 
   return (
     <View style={styles.root}>
@@ -175,12 +188,18 @@ function AppNavigator() {
         <RootStack.Screen name="Main" component={MainTabs} />
       </RootStack.Navigator>
 
+      {showPinLock ? (
+        <View style={styles.lockOverlay}>
+          <PinLockScreen />
+        </View>
+      ) : null}
+
       {splashVisible ? (
         <Animated.View
           style={[styles.splashOverlay, { opacity: fadeAnim }]}
-          pointerEvents={isReady ? 'none' : 'auto'}
+          pointerEvents={bothReady ? 'none' : 'auto'}
         >
-          <SplashScreen loading={!isReady} />
+          <SplashScreen loading={!bothReady} />
         </Animated.View>
       ) : null}
     </View>
@@ -201,11 +220,13 @@ export default function App() {
     <WebPreviewFrame>
       <SafeAreaProvider>
         <PaperProvider theme={paperTheme}>
-          <DebtProvider>
-            <NavigationContainer>
-              <AppNavigator />
-            </NavigationContainer>
-          </DebtProvider>
+          <AuthProvider>
+            <DebtProvider>
+              <NavigationContainer>
+                <AppNavigator />
+              </NavigationContainer>
+            </DebtProvider>
+          </AuthProvider>
         </PaperProvider>
       </SafeAreaProvider>
     </WebPreviewFrame>
@@ -215,6 +236,12 @@ export default function App() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 50,
+    elevation: 50,
+    backgroundColor: colors.background,
   },
   splashOverlay: {
     ...StyleSheet.absoluteFillObject,

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Button, Text, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDebt } from '../context/DebtContext';
+import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 
 function SectionHeader({ icon, title }) {
@@ -28,10 +29,13 @@ function InfoRow({ icon, label, value }) {
   );
 }
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }) {
   const { settings, updateSettings, clearAllData, contacts, transactions } = useDebt();
+  const { isPinEnabled, verifyPin, removePin } = useAuth();
   const [businessName, setBusinessName] = useState(settings.businessName);
   const [currency, setCurrency] = useState(settings.currency);
+  const [disablePinInput, setDisablePinInput] = useState('');
+  const [showDisableConfirm, setShowDisableConfirm] = useState(false);
 
   useEffect(() => {
     setBusinessName(settings.businessName);
@@ -44,6 +48,28 @@ export default function SettingsScreen() {
       currency: currency.trim() || '₱',
     });
     Alert.alert('Settings saved', 'Your business name and currency symbol have been updated successfully.');
+  };
+
+  const handlePinToggle = (value) => {
+    if (value) {
+      navigation.navigate('PinSetup');
+    } else {
+      setDisablePinInput('');
+      setShowDisableConfirm(true);
+    }
+  };
+
+  const handleConfirmDisablePin = async () => {
+    const correct = await verifyPin(disablePinInput);
+    if (correct) {
+      await removePin();
+      setShowDisableConfirm(false);
+      setDisablePinInput('');
+      Alert.alert('PIN disabled', 'Your PIN lock has been removed.');
+    } else {
+      Alert.alert('Incorrect PIN', 'The PIN you entered is wrong. Please try again.');
+      setDisablePinInput('');
+    }
   };
 
   const handleClearData = () => {
@@ -146,6 +172,76 @@ export default function SettingsScreen() {
         <InfoRow icon="tag-outline" label="Version" value="1.0.0" />
         <View style={styles.divider} />
         <InfoRow icon="shield-check-outline" label="Data privacy" value="All data stays on this device" />
+      </View>
+
+      {/* Security */}
+      <View style={styles.card}>
+        <SectionHeader icon="shield-lock-outline" title="Security" />
+
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleLeft}>
+            <MaterialCommunityIcons name="lock-outline" size={18} color={colors.textMuted} style={styles.infoIcon} />
+            <View style={styles.toggleText}>
+              <Text style={styles.infoLabel}>PIN lock</Text>
+              <Text style={styles.infoValue}>
+                {isPinEnabled ? 'App is locked on startup' : 'Disabled — anyone can open the app'}
+              </Text>
+            </View>
+          </View>
+          <Switch
+            value={isPinEnabled}
+            onValueChange={handlePinToggle}
+            trackColor={{ false: colors.border, true: colors.primaryLight }}
+            thumbColor={isPinEnabled ? colors.primary : colors.textMuted}
+          />
+        </View>
+
+        {isPinEnabled && (
+          <>
+            <View style={styles.divider} />
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons name="fingerprint" size={18} color={colors.textMuted} style={styles.infoIcon} />
+              <View style={styles.infoText}>
+                <Text style={styles.infoLabel}>Biometric unlock</Text>
+                <Text style={styles.infoValue}>Uses fingerprint if available on your device</Text>
+              </View>
+            </View>
+          </>
+        )}
+
+        {showDisableConfirm && (
+          <View style={styles.disableConfirmBox}>
+            <Text style={styles.disableConfirmLabel}>Enter your current PIN to disable lock:</Text>
+            <TextInput
+              value={disablePinInput}
+              onChangeText={setDisablePinInput}
+              mode="outlined"
+              keyboardType="number-pad"
+              maxLength={6}
+              secureTextEntry
+              style={styles.disableInput}
+              outlineStyle={styles.inputOutline}
+              placeholder="6-digit PIN"
+              left={<TextInput.Icon icon="lock-outline" color={colors.primary} />}
+            />
+            <View style={styles.disableActions}>
+              <Button
+                onPress={() => { setShowDisableConfirm(false); setDisablePinInput(''); }}
+                textColor={colors.textSecondary}
+              >
+                Cancel
+              </Button>
+              <Button
+                mode="contained"
+                onPress={handleConfirmDisablePin}
+                buttonColor={colors.danger}
+                disabled={disablePinInput.length !== 6}
+              >
+                Disable PIN
+              </Button>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Danger zone */}
@@ -291,5 +387,44 @@ const styles = StyleSheet.create({
   },
   dangerButtonContent: {
     paddingVertical: 4,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  toggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  toggleText: {
+    flex: 1,
+  },
+  disableConfirmBox: {
+    marginTop: 14,
+    padding: 14,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 8,
+  },
+  disableConfirmLabel: {
+    fontSize: 13,
+    fontFamily: 'Poppins_500Medium',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  disableInput: {
+    backgroundColor: colors.surface,
+  },
+  disableActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 4,
   },
 });

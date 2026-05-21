@@ -8,15 +8,16 @@ const router = express.Router();
 // Add transaction
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { contactId, amount, type, description } = req.body;
+    const { contactId, amount, type, description, date, dueDate } = req.body;
 
-    // Create transaction
     const transaction = new Transaction({
       userId: req.userId,
       contactId,
       amount,
       type,
-      description,
+      description: description || '',
+      date: date ? new Date(date) : new Date(),
+      dueDate: dueDate || null,
     });
 
     await transaction.save();
@@ -102,7 +103,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'Transaction not found' });
     }
 
-    await Transaction.findByIdAndRemove(req.params.id);
+    await Transaction.findByIdAndDelete(req.params.id);
 
     // Update contact balance
     let contact = await Contact.findById(transaction.contactId);

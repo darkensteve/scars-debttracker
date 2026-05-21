@@ -16,6 +16,14 @@ const ContactSchema = new mongoose.Schema({
   email: {
     type: String,
   },
+  notes: {
+    type: String,
+    default: '',
+  },
+  photoUri: {
+    type: String,
+    default: null,
+  },
   balance: {
     type: Number,
     default: 0,

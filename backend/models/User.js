@@ -18,6 +18,10 @@ const UserSchema = new mongoose.Schema({
   phone: {
     type: String,
   },
+  settings: {
+    businessName: { type: String, default: 'SCARS' },
+    currency: { type: String, default: '₱' },
+  },
   createdAt: {
     type: Date,
     default: Date.now,

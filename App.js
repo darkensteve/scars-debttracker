@@ -16,6 +16,9 @@ import {
 
 import { DebtProvider, useDebt } from './app/context/DebtContext';
 import { AuthProvider, useAuth } from './app/context/AuthContext';
+import { AccountProvider, useAccount } from './app/context/AccountContext';
+import LoginScreen from './app/screens/LoginScreen';
+import RegisterScreen from './app/screens/RegisterScreen';
 import DashboardScreen from './app/screens/DashboardScreen';
 import HistoryScreen from './app/screens/HistoryScreen';
 import ContactsScreen from './app/screens/ContactsScreen';
@@ -36,6 +39,31 @@ const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator();
 const ContactsStack = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
+const AuthStack = createNativeStackNavigator();
+
+function AuthStackScreen() {
+  return (
+    <AuthStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.surface },
+        headerTitleStyle: { fontFamily: 'Poppins_600SemiBold', color: colors.text },
+        headerShadowVisible: false,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
+      <AuthStack.Screen
+        name="Login"
+        component={LoginScreen}
+        options={{ headerShown: false }}
+      />
+      <AuthStack.Screen
+        name="Register"
+        component={RegisterScreen}
+        options={{ title: 'Create account' }}
+      />
+    </AuthStack.Navigator>
+  );
+}
 
 function HomeStackScreen() {
   return (
@@ -206,6 +234,30 @@ function AppNavigator() {
   );
 }
 
+function RootNavigation() {
+  const { isAuthenticated, isReady: accountReady } = useAccount();
+
+  if (!accountReady) {
+    return (
+      <View style={styles.boot}>
+        <SplashScreen loading />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <AuthStackScreen />;
+  }
+
+  return (
+    <AuthProvider>
+      <DebtProvider>
+        <AppNavigator />
+      </DebtProvider>
+    </AuthProvider>
+  );
+}
+
 export default function App() {
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -220,13 +272,11 @@ export default function App() {
     <WebPreviewFrame>
       <SafeAreaProvider>
         <PaperProvider theme={paperTheme}>
-          <AuthProvider>
-            <DebtProvider>
-              <NavigationContainer>
-                <AppNavigator />
-              </NavigationContainer>
-            </DebtProvider>
-          </AuthProvider>
+          <AccountProvider>
+            <NavigationContainer>
+              <RootNavigation />
+            </NavigationContainer>
+          </AccountProvider>
         </PaperProvider>
       </SafeAreaProvider>
     </WebPreviewFrame>
@@ -234,6 +284,10 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  boot: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   root: {
     flex: 1,
   },

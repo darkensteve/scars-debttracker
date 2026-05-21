@@ -4,6 +4,7 @@ import { Button, Text, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDebt } from '../context/DebtContext';
 import { useAuth } from '../context/AuthContext';
+import { useAccount } from '../context/AccountContext';
 import { colors } from '../theme/colors';
 
 function SectionHeader({ icon, title }) {
@@ -32,6 +33,7 @@ function InfoRow({ icon, label, value }) {
 export default function SettingsScreen({ navigation }) {
   const { settings, updateSettings, clearAllData, contacts, transactions } = useDebt();
   const { isPinEnabled, verifyPin, removePin } = useAuth();
+  const { user, logout } = useAccount();
   const [businessName, setBusinessName] = useState(settings.businessName);
   const [currency, setCurrency] = useState(settings.currency);
   const [disablePinInput, setDisablePinInput] = useState('');
@@ -107,6 +109,35 @@ export default function SettingsScreen({ navigation }) {
         <Text style={styles.bannerSub}>Manage your app preferences</Text>
       </View>
 
+      {/* Account */}
+      <View style={styles.card}>
+        <SectionHeader icon="account-circle-outline" title="Account" />
+        <InfoRow icon="account-outline" label="Signed in as" value={user?.name || '—'} />
+        <View style={styles.divider} />
+        <InfoRow icon="email-outline" label="Email" value={user?.email || '—'} />
+        <View style={styles.divider} />
+        <Button
+          mode="outlined"
+          onPress={() => {
+            Alert.alert('Sign out?', 'You will need to sign in again to access your data.', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Sign out',
+                style: 'destructive',
+                onPress: async () => {
+                  await logout();
+                },
+              },
+            ]);
+          }}
+          style={styles.signOutBtn}
+          textColor={colors.primary}
+          icon="logout"
+        >
+          Sign out
+        </Button>
+      </View>
+
       {/* Business profile */}
       <View style={styles.card}>
         <SectionHeader icon="store-outline" title="Business profile" />
@@ -160,9 +191,9 @@ export default function SettingsScreen({ navigation }) {
         />
         <View style={styles.divider} />
         <InfoRow
-          icon="cellphone-lock"
+          icon="cloud-check-outline"
           label="Storage"
-          value="Local only — no cloud needed"
+          value="Saved to your account in the cloud"
         />
       </View>
 
@@ -171,7 +202,7 @@ export default function SettingsScreen({ navigation }) {
         <SectionHeader icon="information-outline" title="About" />
         <InfoRow icon="tag-outline" label="Version" value="1.0.0" />
         <View style={styles.divider} />
-        <InfoRow icon="shield-check-outline" label="Data privacy" value="All data stays on this device" />
+        <InfoRow icon="shield-check-outline" label="Data privacy" value="Data is tied to your account and stored securely" />
       </View>
 
       {/* Security */}
@@ -426,5 +457,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: 8,
     marginTop: 4,
+  },
+  signOutBtn: {
+    marginTop: 12,
+    borderRadius: 12,
+    borderColor: colors.primary,
   },
 });

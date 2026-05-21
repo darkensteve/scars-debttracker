@@ -31,6 +31,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/transactions', require('./routes/transactions'));
 app.use('/api/contacts', require('./routes/contacts'));
 app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/sync', require('./routes/sync'));
 
 // Basic route
 app.get('/', (req, res) => {

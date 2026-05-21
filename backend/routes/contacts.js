@@ -1,5 +1,6 @@
 const express = require('express');
 const Contact = require('../models/Contact');
+const Transaction = require('../models/Transaction');
 const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
@@ -7,13 +8,15 @@ const router = express.Router();
 // Create contact
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { name, phone, email } = req.body;
+    const { name, phone, email, notes, photoUri } = req.body;
 
     const contact = new Contact({
       userId: req.userId,
       name,
       phone,
       email,
+      notes: notes || '',
+      photoUri: photoUri || null,
     });
 
     await contact.save();
@@ -55,16 +58,18 @@ router.get('/:id', authMiddleware, async (req, res) => {
 // Update contact
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
-    const { name, phone, email } = req.body;
+    const { name, phone, email, notes, photoUri } = req.body;
     let contact = await Contact.findById(req.params.id);
 
     if (!contact || contact.userId.toString() !== req.userId) {
       return res.status(404).json({ message: 'Contact not found' });
     }
 
-    contact.name = name || contact.name;
-    contact.phone = phone || contact.phone;
-    contact.email = email || contact.email;
+    if (name !== undefined) contact.name = name;
+    if (phone !== undefined) contact.phone = phone;
+    if (email !== undefined) contact.email = email;
+    if (notes !== undefined) contact.notes = notes;
+    if (photoUri !== undefined) contact.photoUri = photoUri;
     contact.updatedAt = Date.now();
 
     await contact.save();
@@ -87,7 +92,8 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'Contact not found' });
     }
 
-    await Contact.findByIdAndRemove(req.params.id);
+    await Contact.findByIdAndDelete(req.params.id);
+    await Transaction.deleteMany({ contactId: req.params.id, userId: req.userId });
 
     res.json({ message: 'Contact deleted successfully' });
   } catch (error) {

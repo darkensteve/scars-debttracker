@@ -22,6 +22,11 @@ const TransactionSchema = new mongoose.Schema({
   },
   description: {
     type: String,
+    default: '',
+  },
+  dueDate: {
+    type: String,
+    default: null,
   },
   date: {
     type: Date,

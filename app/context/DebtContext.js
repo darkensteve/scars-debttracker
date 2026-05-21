@@ -2,16 +2,38 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { balanceDelta, contactBalance, totalOwed } from '../utils/balance';
 import { computeDueDateISO } from '../utils/due';
+import { useAccount } from './AccountContext';
+import { api } from '../lib/apiClient';
 
-const STORAGE_KEY = '@debttracker_data_v1';
+const LOCAL_CACHE_KEY = '@debttracker_cache_v1';
 
 const DebtContext = createContext(null);
 
-function createId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+function mapContactFromApi(c) {
+  return {
+    id: (c.id || c._id)?.toString(),
+    name: c.name,
+    phone: c.phone || '',
+    notes: c.notes || '',
+    photoUri: c.photoUri || null,
+    createdAt: c.createdAt,
+  };
+}
+
+function mapTransactionFromApi(t) {
+  return {
+    id: (t.id || t._id)?.toString(),
+    contactId: typeof t.contactId === 'object' ? t.contactId._id?.toString() : String(t.contactId),
+    amount: t.amount,
+    type: t.type,
+    description: t.description || '',
+    date: t.date,
+    dueDate: t.dueDate || null,
+  };
 }
 
 export function DebtProvider({ children }) {
+  const { isAuthenticated, token } = useAccount();
   const [contacts, setContacts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [settings, setSettings] = useState({
@@ -20,53 +42,85 @@ export function DebtProvider({ children }) {
   });
   const [isReady, setIsReady] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const data = JSON.parse(raw);
-          setContacts(data.contacts || []);
-          setTransactions(data.transactions || []);
-          setSettings((prev) => ({ ...prev, ...(data.settings || {}) }));
-        }
-      } catch (e) {
-        console.error('Failed to load data', e);
-      } finally {
-        setIsReady(true);
-      }
-    })();
+  const cacheLocally = useCallback(async (nextContacts, nextTransactions, nextSettings) => {
+    await AsyncStorage.setItem(
+      LOCAL_CACHE_KEY,
+      JSON.stringify({
+        contacts: nextContacts,
+        transactions: nextTransactions,
+        settings: nextSettings,
+      })
+    );
   }, []);
 
-  const persist = useCallback(async (nextContacts, nextTransactions, nextSettings) => {
-    const payload = {
-      contacts: nextContacts,
-      transactions: nextTransactions,
-      settings: nextSettings,
+  const loadFromCloud = useCallback(async () => {
+    const data = await api.sync();
+    const nextContacts = (data.contacts || []).map(mapContactFromApi);
+    const nextTransactions = (data.transactions || []).map(mapTransactionFromApi);
+    const nextSettings = {
+      businessName: data.settings?.businessName || 'SCARS',
+      currency: data.settings?.currency || '₱',
     };
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, []);
+    setContacts(nextContacts);
+    setTransactions(nextTransactions);
+    setSettings(nextSettings);
+    await cacheLocally(nextContacts, nextTransactions, nextSettings);
+    return { nextContacts, nextTransactions, nextSettings };
+  }, [cacheLocally]);
+
+  useEffect(() => {
+    if (!token) {
+      setIsReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        await loadFromCloud();
+      } catch (e) {
+        console.error('Failed to load cloud data', e);
+        try {
+          const raw = await AsyncStorage.getItem(LOCAL_CACHE_KEY);
+          if (raw && !cancelled) {
+            const data = JSON.parse(raw);
+            setContacts(data.contacts || []);
+            setTransactions(data.transactions || []);
+            setSettings((prev) => ({ ...prev, ...(data.settings || {}) }));
+          }
+        } catch {
+          // ignore
+        }
+      } finally {
+        if (!cancelled) setIsReady(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, loadFromCloud]);
 
   const saveAll = useCallback(
     async (nextContacts, nextTransactions, nextSettings = settings) => {
       setContacts(nextContacts);
       setTransactions(nextTransactions);
       setSettings(nextSettings);
-      await persist(nextContacts, nextTransactions, nextSettings);
+      await cacheLocally(nextContacts, nextTransactions, nextSettings);
     },
-    [persist, settings]
+    [cacheLocally, settings]
   );
 
   const addContact = useCallback(
     async ({ name, phone, notes, photoUri }) => {
-      const contact = {
-        id: createId(),
+      const payload = {
         name: name.trim(),
         phone: (phone || '').trim(),
         notes: (notes || '').trim(),
         photoUri: photoUri || null,
-        createdAt: new Date().toISOString(),
       };
+      const res = await api.createContact(payload);
+      const contact = mapContactFromApi(res.contact);
       const nextContacts = [contact, ...contacts];
       await saveAll(nextContacts, transactions);
       return contact;
@@ -76,6 +130,14 @@ export function DebtProvider({ children }) {
 
   const updateContact = useCallback(
     async (id, updates) => {
+      const body = {};
+      if (updates.name !== undefined) body.name = updates.name.trim();
+      if (updates.phone !== undefined) body.phone = updates.phone.trim();
+      if (updates.notes !== undefined) body.notes = updates.notes.trim();
+      if (updates.photoUri !== undefined) body.photoUri = updates.photoUri || null;
+
+      await api.updateContact(id, body);
+
       const nextContacts = contacts.map((c) =>
         c.id === id
           ? {
@@ -96,6 +158,7 @@ export function DebtProvider({ children }) {
 
   const deleteContact = useCallback(
     async (id) => {
+      await api.deleteContact(id);
       const nextContacts = contacts.filter((c) => c.id !== id);
       const nextTransactions = transactions.filter((t) => t.contactId !== id);
       await saveAll(nextContacts, nextTransactions);
@@ -110,15 +173,18 @@ export function DebtProvider({ children }) {
         throw new Error('Invalid transaction');
       }
       const createdAtISO = new Date().toISOString();
-      const transaction = {
-        id: createId(),
+      const dueDate = computeDueDateISO({ type, createdAtISO });
+
+      const res = await api.createTransaction({
         contactId,
         amount: value,
         type,
         description: (description || '').trim(),
         date: createdAtISO,
-        dueDate: computeDueDateISO({ type, createdAtISO }),
-      };
+        dueDate,
+      });
+
+      const transaction = mapTransactionFromApi(res.transaction);
       const nextTransactions = [transaction, ...transactions];
       await saveAll(contacts, nextTransactions);
       return transaction;
@@ -128,6 +194,7 @@ export function DebtProvider({ children }) {
 
   const deleteTransaction = useCallback(
     async (id) => {
+      await api.deleteTransaction(id);
       const nextTransactions = transactions.filter((t) => t.id !== id);
       await saveAll(contacts, nextTransactions);
     },
@@ -137,17 +204,33 @@ export function DebtProvider({ children }) {
   const updateSettings = useCallback(
     async (updates) => {
       const nextSettings = { ...settings, ...updates };
+      await api.updateSettings({
+        businessName: nextSettings.businessName,
+        currency: nextSettings.currency,
+      });
       await saveAll(contacts, transactions, nextSettings);
     },
     [contacts, transactions, settings, saveAll]
   );
 
   const clearAllData = useCallback(async () => {
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    for (const t of [...transactions]) {
+      await api.deleteTransaction(t.id);
+    }
+    for (const c of [...contacts]) {
+      await api.deleteContact(c.id);
+    }
+    const emptySettings = { businessName: 'SCARS', currency: '₱' };
+    await api.updateSettings(emptySettings);
     setContacts([]);
     setTransactions([]);
-    setSettings({ businessName: 'SCARS', currency: '₱' });
-  }, []);
+    setSettings(emptySettings);
+    await cacheLocally([], [], emptySettings);
+  }, [contacts, transactions]);
+
+  const refreshFromCloud = useCallback(async () => {
+    await loadFromCloud();
+  }, [loadFromCloud]);
 
   const getContactById = useCallback(
     (id) => contacts.find((c) => c.id === id),
@@ -164,7 +247,7 @@ export function DebtProvider({ children }) {
 
   const value = useMemo(
     () => ({
-      isReady,
+      isReady: isAuthenticated ? isReady : false,
       contacts,
       transactions,
       settings,
@@ -178,6 +261,7 @@ export function DebtProvider({ children }) {
       deleteTransaction,
       updateSettings,
       clearAllData,
+      refreshFromCloud,
       getContactById,
       getTransactionsForContact,
       recentTransactions: [...transactions].sort(
@@ -186,6 +270,7 @@ export function DebtProvider({ children }) {
     }),
     [
       isReady,
+      isAuthenticated,
       contacts,
       transactions,
       settings,
@@ -196,6 +281,7 @@ export function DebtProvider({ children }) {
       deleteTransaction,
       updateSettings,
       clearAllData,
+      refreshFromCloud,
       getContactById,
       getTransactionsForContact,
     ]

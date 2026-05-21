@@ -23,7 +23,14 @@ router.post('/', authMiddleware, async (req, res) => {
 
     res.status(201).json({
       message: 'Contact created successfully',
-      contact,
+      contact: {
+        id: contact._id.toString(),
+        name: contact.name,
+        phone: contact.phone || '',
+        notes: contact.notes || '',
+        photoUri: contact.photoUri || null,
+        createdAt: contact.createdAt,
+      },
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });

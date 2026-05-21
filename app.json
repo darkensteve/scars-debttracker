@@ -34,6 +34,7 @@
       "expo-local-authentication"
     ],
     "extra": {
+      "apiUrl": "https://scars-jaxl.onrender.com",
       "eas": {
         "projectId": "04a352d9-4932-4dd2-bdb2-70988adf6c6d"
       }

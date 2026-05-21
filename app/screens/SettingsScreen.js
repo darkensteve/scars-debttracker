@@ -74,6 +74,23 @@ export default function SettingsScreen({ navigation }) {
     }
   };
 
+  const handleSignOut = () => {
+    Alert.alert(
+      'Sign out?',
+      'Your data stays saved in the cloud. Sign in again anytime with your email and password.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign out',
+          style: 'destructive',
+          onPress: () => {
+            logout();
+          },
+        },
+      ]
+    );
+  };
+
   const handleClearData = () => {
     Alert.alert(
       'Delete all data?',
@@ -118,18 +135,7 @@ export default function SettingsScreen({ navigation }) {
         <View style={styles.divider} />
         <Button
           mode="outlined"
-          onPress={() => {
-            Alert.alert('Sign out?', 'You will need to sign in again to access your data.', [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Sign out',
-                style: 'destructive',
-                onPress: async () => {
-                  await logout();
-                },
-              },
-            ]);
-          }}
+          onPress={handleSignOut}
           style={styles.signOutBtn}
           textColor={colors.primary}
           icon="logout"

@@ -1,8 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import * as SecureStore from 'expo-secure-store';
-
-const STORE_PIN = 'scars_pin';
-const STORE_PIN_ENABLED = 'scars_pin_enabled';
+import { loadPinSettings, savePin as storePin, clearPin, verifyStoredPin } from '../lib/pinStorage';
 
 const AuthContext = createContext(null);
 
@@ -14,10 +11,9 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     (async () => {
       try {
-        const enabled = await SecureStore.getItemAsync(STORE_PIN_ENABLED);
-        const pinEnabled = enabled === 'true';
+        const { pinEnabled } = await loadPinSettings();
         setIsPinEnabled(pinEnabled);
-        if (!pinEnabled) setIsUnlocked(true);
+        setIsUnlocked(!pinEnabled);
       } catch {
         setIsUnlocked(true);
       } finally {
@@ -30,24 +26,22 @@ export function AuthProvider({ children }) {
     setIsUnlocked(true);
   }, []);
 
+  const lockApp = useCallback(() => {
+    setIsUnlocked(false);
+  }, []);
+
   const verifyPin = useCallback(async (pin) => {
-    try {
-      const stored = await SecureStore.getItemAsync(STORE_PIN);
-      return stored === pin;
-    } catch {
-      return false;
-    }
+    return verifyStoredPin(pin);
   }, []);
 
   const savePin = useCallback(async (pin) => {
-    await SecureStore.setItemAsync(STORE_PIN, pin);
-    await SecureStore.setItemAsync(STORE_PIN_ENABLED, 'true');
+    await storePin(pin);
     setIsPinEnabled(true);
+    setIsUnlocked(false);
   }, []);
 
   const removePin = useCallback(async () => {
-    await SecureStore.deleteItemAsync(STORE_PIN);
-    await SecureStore.setItemAsync(STORE_PIN_ENABLED, 'false');
+    await clearPin();
     setIsPinEnabled(false);
     setIsUnlocked(true);
   }, []);
@@ -59,6 +53,7 @@ export function AuthProvider({ children }) {
         isUnlocked,
         isAuthReady,
         unlock,
+        lockApp,
         verifyPin,
         savePin,
         removePin,

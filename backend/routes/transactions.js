@@ -34,7 +34,15 @@ router.post('/', authMiddleware, async (req, res) => {
 
     res.status(201).json({
       message: 'Transaction added successfully',
-      transaction,
+      transaction: {
+        id: transaction._id.toString(),
+        contactId: transaction.contactId.toString(),
+        amount: transaction.amount,
+        type: transaction.type,
+        description: transaction.description || '',
+        date: transaction.date,
+        dueDate: transaction.dueDate || null,
+      },
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });

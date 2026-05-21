@@ -50,7 +50,7 @@ export default function RegisterScreen({ navigation }) {
       });
       Alert.alert(
         'Account created',
-        'Your data will now be saved to your account. If you had local data on this device, it was uploaded automatically.'
+        'Your records are saved to the cloud. Enable PIN lock in Settings for extra security when opening the app.'
       );
     } catch (e) {
       Alert.alert('Registration failed', e.message || 'Could not create account. Try again.');

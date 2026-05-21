@@ -52,7 +52,7 @@ export default function LoginScreen({ navigation }) {
           </View>
           <Text style={styles.title}>Welcome back</Text>
           <Text style={styles.subtitle}>
-            Sign in to access your contacts and records saved in the cloud.
+            Sign in once to sync your data to the cloud. After that, use your PIN to open the app.
           </Text>
         </View>
 

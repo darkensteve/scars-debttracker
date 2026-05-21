@@ -20,13 +20,27 @@ export default function AddContactScreen({ navigation }) {
     setSaving(true);
     try {
       const contact = await addContact({ name, phone, notes });
+      if (!contact?.id) {
+        throw new Error('Server did not return a contact id.');
+      }
       Alert.alert(
         'Contact added',
-        `${name.trim()} has been added to your list. You can now record loans, purchases, and payments for them.`,
-        [{ text: 'View profile', onPress: () => navigation.replace('ContactDetail', { contactId: contact.id }) }]
+        `${name.trim()} has been added to your list.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              navigation.navigate('ContactsList');
+              navigation.navigate('ContactDetail', { contactId: contact.id });
+            },
+          },
+        ]
       );
     } catch (e) {
-      Alert.alert('Error', 'Could not save contact. Please try again.');
+      Alert.alert(
+        'Could not save contact',
+        e?.message || 'Check your internet connection and try again.'
+      );
     } finally {
       setSaving(false);
     }

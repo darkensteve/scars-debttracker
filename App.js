@@ -235,7 +235,7 @@ function AppNavigator() {
 }
 
 function RootNavigation() {
-  const { isAuthenticated, isReady: accountReady } = useAccount();
+  const { isAuthenticated, isReady: accountReady, sessionKey } = useAccount();
 
   if (!accountReady) {
     return (
@@ -246,12 +246,12 @@ function RootNavigation() {
   }
 
   if (!isAuthenticated) {
-    return <AuthStackScreen />;
+    return <AuthStackScreen key="auth-stack" />;
   }
 
   return (
-    <AuthProvider>
-      <DebtProvider>
+    <AuthProvider key={`app-${sessionKey}`}>
+      <DebtProvider key={`debt-${sessionKey}`}>
         <AppNavigator />
       </DebtProvider>
     </AuthProvider>

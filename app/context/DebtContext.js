@@ -120,7 +120,13 @@ export function DebtProvider({ children }) {
         photoUri: photoUri || null,
       };
       const res = await api.createContact(payload);
+      if (!res?.contact) {
+        throw new Error('Invalid response from server.');
+      }
       const contact = mapContactFromApi(res.contact);
+      if (!contact.id) {
+        throw new Error('Could not read contact id from server.');
+      }
       const nextContacts = [contact, ...contacts];
       await saveAll(nextContacts, transactions);
       return contact;

@@ -8,7 +8,7 @@ import { formatDateTime, formatMoney } from '../utils/format';
 import { colors } from '../theme/colors';
 
 export default function ContactsScreen({ navigation }) {
-  const { contacts, contactBalance, settings, transactions, updateContact } = useDebt();
+  const { contacts, contactBalance, settings, transactions, updateContact, isReady } = useDebt();
   const [searchQuery, setSearchQuery] = useState('');
 
   const latestByContact = useMemo(() => {
@@ -50,6 +50,14 @@ export default function ContactsScreen({ navigation }) {
     if (!asset?.uri) return;
     await updateContact(contact.id, { photoUri: asset.uri });
   };
+
+  if (!isReady) {
+    return (
+      <View style={[styles.container, styles.loadingWrap]}>
+        <Text style={styles.loadingText}>Loading your contacts…</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -272,5 +280,13 @@ const styles = StyleSheet.create({
     marginTop: 40,
     lineHeight: 22,
     paddingHorizontal: 8,
+  },
+  loadingWrap: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: colors.textSecondary,
+    fontFamily: 'Poppins_500Medium',
   },
 });

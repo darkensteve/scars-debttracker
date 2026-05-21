@@ -4,11 +4,17 @@
   },
   "build": {
     "preview": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://scars-jaxl.onrender.com"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://scars-jaxl.onrender.com"
+      },
       "android": {
         "buildType": "app-bundle"
       }

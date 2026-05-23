@@ -1,6 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Card, Searchbar, Text } from 'react-native-paper';
+import {
+  FlatList,
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Searchbar, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useDebt } from '../context/DebtContext';
@@ -72,6 +80,12 @@ export default function ContactsScreen({ navigation }) {
         data={filteredContacts}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        overScrollMode="never"
+        removeClippedSubviews={Platform.OS !== 'web'}
+        windowSize={7}
+        maxToRenderPerBatch={8}
+        initialNumToRender={10}
         ListEmptyComponent={
           <Text style={styles.empty}>
             No contacts yet. Tap + to add someone.
@@ -82,72 +96,83 @@ export default function ContactsScreen({ navigation }) {
           const latest = latestByContact.get(item.id);
           const hasPhone = !!item.phone;
           return (
-            <Card style={styles.contactCard}>
-              <Card.Content style={styles.cardContent}>
-                <View style={styles.contactRow}>
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => handleAvatarPress(item)}
-                  >
-                    {item.photoUri ? (
-                      <Image
-                        source={{ uri: item.photoUri }}
-                        style={styles.avatarImage}
-                        onError={() => updateContact(item.id, { photoUri: null })}
-                      />
-                    ) : (
-                      <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>
-                          {item.name.charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-
-                  <View style={styles.contactInfo}>
-                    <Text style={styles.contactName}>{item.name}</Text>
-                    {hasPhone ? (
-                      <Text style={styles.phone}>{item.phone}</Text>
-                    ) : (
-                      <Text style={styles.phoneMuted}>No phone added</Text>
-                    )}
-                    {latest ? (
-                      <Text style={styles.activityMeta}>
-                        Last activity: {formatDateTime(latest.date)}
+            <View style={styles.contactCard}>
+              <View style={styles.contactRow}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleAvatarPress(item)}
+                  style={styles.avatarTouch}
+                  accessibilityLabel={`Change photo for ${item.name}`}
+                  accessibilityRole="button"
+                >
+                  {item.photoUri ? (
+                    <Image
+                      source={{ uri: item.photoUri }}
+                      style={styles.avatarImage}
+                      onError={() => updateContact(item.id, { photoUri: null })}
+                    />
+                  ) : (
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>
+                        {item.name.charAt(0).toUpperCase()}
                       </Text>
-                    ) : (
-                      <Text style={styles.activityMeta}>No records yet</Text>
-                    )}
-                  </View>
+                      <View style={styles.avatarBadge}>
+                        <MaterialCommunityIcons name="camera-plus" size={12} color={colors.primary} />
+                      </View>
+                    </View>
+                  )}
+                </TouchableOpacity>
 
-                  <View style={styles.balanceCol}>
-                    <Text
-                      style={[
-                        styles.balance,
-                        balance > 0 && styles.balanceOwed,
-                        balance === 0 && styles.balanceSettled,
-                      ]}
-                    >
-                      {balance === 0
-                        ? 'Settled'
-                        : formatMoney(balance, settings.currency)}
+                <View style={styles.contactInfo}>
+                  <Text style={styles.contactName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  {hasPhone ? (
+                    <Text style={styles.phone} numberOfLines={1}>
+                      {item.phone}
                     </Text>
-                    <Pressable
-                      hitSlop={12}
-                      onPress={() =>
-                        navigation.navigate('ContactDetail', { contactId: item.id })
-                      }
-                    >
-                      <MaterialCommunityIcons
-                        name="chevron-right"
-                        size={22}
-                        color={colors.textMuted}
-                      />
-                    </Pressable>
-                  </View>
+                  ) : (
+                    <Text style={styles.phoneMuted}>No phone added</Text>
+                  )}
+                  <Text style={styles.activityMeta} numberOfLines={1}>
+                    {latest
+                      ? `Last activity: ${formatDateTime(latest.date)}`
+                      : 'No records yet'}
+                  </Text>
                 </View>
-              </Card.Content>
-            </Card>
+
+                <View style={styles.balanceCol}>
+                  <Text
+                    style={[
+                      styles.balance,
+                      balance > 0 && styles.balanceOwed,
+                      balance === 0 && styles.balanceSettled,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {balance === 0 ? 'Settled' : formatMoney(balance, settings.currency)}
+                  </Text>
+                  <Pressable
+                    hitSlop={12}
+                    onPress={() =>
+                      navigation.navigate('ContactDetail', { contactId: item.id })
+                    }
+                    style={({ pressed }) => [
+                      styles.chevronBtn,
+                      pressed && styles.chevronBtnPressed,
+                    ]}
+                    accessibilityLabel={`Open ${item.name}'s details`}
+                    accessibilityRole="button"
+                  >
+                    <MaterialCommunityIcons
+                      name="chevron-right"
+                      size={24}
+                      color={colors.primary}
+                    />
+                  </Pressable>
+                </View>
+              </View>
+            </View>
           );
         }}
       />
@@ -177,19 +202,29 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   list: {
-    paddingBottom: 88,
+    paddingBottom: 96,
+    ...(Platform.OS === 'web'
+      ? {
+          scrollbarWidth: 'none',
+        }
+      : {}),
   },
   contactCard: {
     marginBottom: 10,
     borderRadius: 14,
     backgroundColor: colors.surface,
-  },
-  cardContent: {
-    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
   },
   contactRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 52,
+  },
+  avatarTouch: {
+    marginRight: 12,
   },
   avatar: {
     width: 48,
@@ -198,13 +233,25 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
+    position: 'relative',
+  },
+  avatarBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarImage: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    marginRight: 14,
     backgroundColor: colors.primaryLight,
   },
   avatarText: {
@@ -214,16 +261,32 @@ const styles = StyleSheet.create({
   },
   contactInfo: {
     flex: 1,
-    marginRight: 8,
+    marginRight: 10,
+    justifyContent: 'center',
+    gap: 2,
   },
   activityMeta: {
     fontSize: 11,
+    lineHeight: 15,
     color: colors.textMuted,
-    marginTop: 2,
+    fontFamily: 'Poppins_400Regular',
   },
   balanceCol: {
     alignItems: 'flex-end',
+    justifyContent: 'center',
     gap: 4,
+    minWidth: 72,
+  },
+  chevronBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryLight,
+  },
+  chevronBtnPressed: {
+    backgroundColor: '#D6E4FF',
   },
   balance: {
     fontSize: 15,
@@ -240,19 +303,22 @@ const styles = StyleSheet.create({
   },
   contactName: {
     fontSize: 16,
+    lineHeight: 22,
     fontFamily: 'Poppins_600SemiBold',
     color: colors.text,
   },
   phone: {
     fontSize: 13,
+    lineHeight: 18,
     color: colors.textSecondary,
-    marginTop: 3,
+    fontFamily: 'Poppins_400Regular',
   },
   phoneMuted: {
     fontSize: 13,
+    lineHeight: 18,
     color: colors.textMuted,
-    marginTop: 3,
     fontStyle: 'italic',
+    fontFamily: 'Poppins_400Regular',
   },
   fab: {
     position: 'absolute',

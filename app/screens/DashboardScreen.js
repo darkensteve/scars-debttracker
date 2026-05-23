@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -125,7 +125,7 @@ export default function DashboardScreen({ navigation }) {
 
       </View>
 
-      <View style={[styles.dueSection, dueThisWeek.length > 0 && styles.dueSectionExpanded]}>
+      <View style={styles.dueSection}>
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>Due this week</Text>
           {dueThisWeek.length > 0 ? (
@@ -146,8 +146,13 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.emptyTitle}>No one is due this week.</Text>
           </View>
         ) : (
-          <View style={styles.dueList}>
-            {dueThisWeek.map((d, i) => (
+          <ScrollView
+            style={styles.dueListScroll}
+            contentContainerStyle={styles.dueListContent}
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+          >
+            {dueThisWeek.map((d) => (
               <View
                 key={d.contactId}
                 style={[styles.dueRow, d.isOverdue && styles.dueRowOverdue]}
@@ -158,11 +163,17 @@ export default function DashboardScreen({ navigation }) {
                   </Text>
                 </View>
                 <View style={styles.dueRowBody}>
-                  <Text style={styles.dueRowName} numberOfLines={1}>{d.name}</Text>
+                  <Text style={styles.dueRowName} numberOfLines={1}>
+                    {d.name}
+                  </Text>
                   <Text style={[styles.dueRowDate, d.isOverdue && styles.dueRowDateOverdue]}>
                     {d.isOverdue
                       ? 'Overdue'
-                      : `Due ${new Date(d.dueDate).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                      : `Due ${new Date(d.dueDate).toLocaleDateString('en-PH', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}`}
                   </Text>
                 </View>
                 <MaterialCommunityIcons
@@ -172,7 +183,7 @@ export default function DashboardScreen({ navigation }) {
                 />
               </View>
             ))}
-          </View>
+          </ScrollView>
         )}
       </View>
     </View>
@@ -256,11 +267,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dueSection: {
-    flexShrink: 1,
-  },
-  dueSectionExpanded: {
-    flex: 1,
-    minHeight: 0,
+    flexShrink: 0,
+    marginTop: 4,
   },
   sectionHead: {
     flexDirection: 'row',
@@ -285,17 +293,20 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_700Bold',
     color: '#FFFFFF',
   },
-  dueList: {
-    flex: 1,
+  dueListScroll: {
+    flexGrow: 0,
+    maxHeight: 220,
+  },
+  dueListContent: {
     gap: 8,
-    minHeight: 0,
+    paddingBottom: 8,
   },
   dueRow: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFBEB',
     paddingHorizontal: 14,
+    paddingVertical: 12,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#FDE68A',

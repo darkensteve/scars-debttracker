@@ -1,6 +1,7 @@
 import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
+import { fonts } from '../theme/fonts';
 
 const PHONE_WIDTH = 390;
 
@@ -38,6 +39,7 @@ const styles = StyleSheet.create({
   bannerText: {
     color: '#B0BEC5',
     fontSize: 13,
+    fontFamily: fonts.regular,
     textAlign: 'center',
   },
   phoneShell: {

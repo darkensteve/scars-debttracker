@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, Platform, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
   getCollectedThisWeek,
@@ -84,6 +84,8 @@ export default function HeroInsightsCarousel({
   );
 
   useEffect(() => {
+    if (Platform.OS === 'web') return undefined;
+
     const timer = setInterval(() => {
       Animated.timing(fadeAnim, {
         toValue: 0,

@@ -1,12 +1,25 @@
-import { MD3LightTheme } from 'react-native-paper';
+import { MD3LightTheme, configureFonts } from 'react-native-paper';
 import { colors } from './colors';
+import { fonts } from './fonts';
 
-const poppinsFonts = {
-  regular: { fontFamily: 'Poppins_400Regular', fontFamily: 'Poppins_400Regular' },
-  medium: { fontFamily: 'Poppins_500Medium', fontFamily: 'Poppins_400Regular' },
-  bold: { fontFamily: 'Poppins_700Bold', fontFamily: 'Poppins_400Regular' },
-  heavy: { fontFamily: 'Poppins_700Bold', fontFamily: 'Poppins_400Regular' },
+const poppins = {
+  regular: { fontFamily: fonts.regular },
+  medium: { fontFamily: fonts.medium },
+  bold: { fontFamily: fonts.bold },
+  heavy: { fontFamily: fonts.bold },
 };
+
+const baseFonts = configureFonts({
+  config: {
+    fontFamily: fonts.regular,
+  },
+  isV3: true,
+});
+
+function withPoppins(variant, weight = 'regular') {
+  const base = baseFonts[variant] || baseFonts.bodyMedium;
+  return { ...base, ...poppins[weight] };
+}
 
 export const paperTheme = {
   ...MD3LightTheme,
@@ -21,19 +34,22 @@ export const paperTheme = {
   },
   roundness: 12,
   fonts: {
-    ...MD3LightTheme.fonts,
-    default: poppinsFonts.regular,
-    bodySmall: { ...MD3LightTheme.fonts.bodySmall, ...poppinsFonts.regular },
-    bodyMedium: { ...MD3LightTheme.fonts.bodyMedium, ...poppinsFonts.regular },
-    bodyLarge: { ...MD3LightTheme.fonts.bodyLarge, ...poppinsFonts.medium },
-    labelSmall: { ...MD3LightTheme.fonts.labelSmall, ...poppinsFonts.medium },
-    labelMedium: { ...MD3LightTheme.fonts.labelMedium, ...poppinsFonts.medium },
-    labelLarge: { ...MD3LightTheme.fonts.labelLarge, ...poppinsFonts.medium },
-    titleSmall: { ...MD3LightTheme.fonts.titleSmall, ...poppinsFonts.medium },
-    titleMedium: { ...MD3LightTheme.fonts.titleMedium, ...poppinsFonts.bold },
-    titleLarge: { ...MD3LightTheme.fonts.titleLarge, ...poppinsFonts.bold },
-    headlineSmall: { ...MD3LightTheme.fonts.headlineSmall, ...poppinsFonts.bold },
-    headlineMedium: { ...MD3LightTheme.fonts.headlineMedium, ...poppinsFonts.bold },
-    headlineLarge: { ...MD3LightTheme.fonts.headlineLarge, ...poppinsFonts.bold },
+    ...baseFonts,
+    default: withPoppins('bodyMedium', 'regular'),
+    displaySmall: withPoppins('displaySmall', 'bold'),
+    displayMedium: withPoppins('displayMedium', 'bold'),
+    displayLarge: withPoppins('displayLarge', 'bold'),
+    headlineSmall: withPoppins('headlineSmall', 'bold'),
+    headlineMedium: withPoppins('headlineMedium', 'bold'),
+    headlineLarge: withPoppins('headlineLarge', 'bold'),
+    titleSmall: withPoppins('titleSmall', 'medium'),
+    titleMedium: withPoppins('titleMedium', 'bold'),
+    titleLarge: withPoppins('titleLarge', 'bold'),
+    labelSmall: withPoppins('labelSmall', 'medium'),
+    labelMedium: withPoppins('labelMedium', 'medium'),
+    labelLarge: withPoppins('labelLarge', 'medium'),
+    bodySmall: withPoppins('bodySmall', 'regular'),
+    bodyMedium: withPoppins('bodyMedium', 'regular'),
+    bodyLarge: withPoppins('bodyLarge', 'medium'),
   },
 };

@@ -3,7 +3,9 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Text, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ContactPicker from '../components/ContactPicker';
+import DatePickerField from '../components/DatePickerField';
 import { useDebt } from '../context/DebtContext';
+import { startOfDay } from '../lib/dateFilters';
 import { TRANSACTION_LABELS } from '../utils/format';
 import { computeDueDateISO } from '../utils/due';
 import { colors } from '../theme/colors';
@@ -44,14 +46,16 @@ export default function AddTransactionScreen({ navigation, route }) {
   const [amount, setAmount] = useState('');
   const [transactionType, setTransactionType] = useState('loan');
   const [description, setDescription] = useState('');
+  const [transactionDate, setTransactionDate] = useState(() => startOfDay(new Date()));
   const [saving, setSaving] = useState(false);
 
   const selectedType = TYPE_OPTIONS.find((t) => t.value === transactionType);
 
   const duePreview = useMemo(() => {
-    const createdAtISO = new Date().toISOString();
+    const base = transactionDate || new Date();
+    const createdAtISO = startOfDay(base).toISOString();
     return computeDueDateISO({ type: transactionType, createdAtISO });
-  }, [transactionType]);
+  }, [transactionType, transactionDate]);
 
   useEffect(() => {
     if (preselectedId && contacts.find((c) => c.id === preselectedId)) {
@@ -71,9 +75,23 @@ export default function AddTransactionScreen({ navigation, route }) {
       Alert.alert('Invalid amount', 'Please enter a valid amount greater than zero.');
       return;
     }
+    if (transactionType !== 'payment' && transactionDate) {
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      if (transactionDate > todayEnd) {
+        Alert.alert('Invalid date', 'The date cannot be in the future.');
+        return;
+      }
+    }
     setSaving(true);
     try {
-      const tx = await addTransaction({ contactId, amount: value, type: transactionType, description });
+      const tx = await addTransaction({
+        contactId,
+        amount: value,
+        type: transactionType,
+        description,
+        date: transactionType === 'payment' ? undefined : transactionDate,
+      });
       const contactName = contacts.find((c) => c.id === contactId)?.name || 'Contact';
       const formatted = `${settings.currency || '₱'}${value.toLocaleString()}`;
       const dueISO = tx?.dueDate;
@@ -225,6 +243,21 @@ export default function AddTransactionScreen({ navigation, route }) {
             outlineStyle={styles.inputOutline}
           />
         </View>
+
+        {transactionType !== 'payment' ? (
+          <View style={styles.fieldGroup}>
+            <DatePickerField
+              label={transactionType === 'loan' ? 'Start lent' : 'Date'}
+              hint={
+                transactionType === 'loan'
+                  ? 'When you lent this money (pick a past date if needed)'
+                  : 'When the purchase happened'
+              }
+              value={transactionDate}
+              onChange={setTransactionDate}
+            />
+          </View>
+        ) : null}
 
         {/* Description */}
         <View style={styles.fieldGroup}>

@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { toTransactionDateISO } from '../lib/dateFilters';
 import { balanceDelta, contactBalance, totalOwed } from '../utils/balance';
 import { computeDueDateISO } from '../utils/due';
 import { useAccount } from './AccountContext';
@@ -18,6 +19,7 @@ import {
 } from '../lib/syncQueue';
 
 const LOCAL_CACHE_KEY = '@debttracker_cache_v1';
+const AUTO_SYNC_INTERVAL_MS = Platform.OS === 'web' ? 120000 : 20000;
 
 const DebtContext = createContext(null);
 
@@ -67,6 +69,8 @@ export function DebtProvider({ children }) {
   const stateRef = useRef({ contacts, transactions, settings });
   stateRef.current = { contacts, transactions, settings };
 
+  const syncGuard = useRef({ inFlight: false, lastAt: 0 });
+
   const refreshPendingCount = useCallback(async () => {
     const queue = await loadQueue();
     setPendingSyncCount(queue.length);
@@ -84,13 +88,14 @@ export function DebtProvider({ children }) {
   }, []);
 
   const saveAll = useCallback(
-    async (nextContacts, nextTransactions, nextSettings = settings) => {
+    async (nextContacts, nextTransactions, nextSettings) => {
+      const resolvedSettings = nextSettings ?? stateRef.current.settings;
       setContacts(nextContacts);
       setTransactions(nextTransactions);
-      setSettings(nextSettings);
-      await cacheLocally(nextContacts, nextTransactions, nextSettings);
+      setSettings(resolvedSettings);
+      await cacheLocally(nextContacts, nextTransactions, resolvedSettings);
     },
-    [cacheLocally, settings]
+    [cacheLocally]
   );
 
   const loadFromCloud = useCallback(async () => {
@@ -142,7 +147,28 @@ export function DebtProvider({ children }) {
     [saveAll, loadFromCloud, refreshPendingCount]
   );
 
-  const syncNow = useCallback(() => runSync({ pullFromCloud: true }), [runSync]);
+  const runSyncThrottled = useCallback(
+    async ({ pullFromCloud = true, force = false } = {}) => {
+      if (syncGuard.current.inFlight) return false;
+
+      const elapsed = Date.now() - syncGuard.current.lastAt;
+      if (!force && elapsed < AUTO_SYNC_INTERVAL_MS) return false;
+
+      syncGuard.current.inFlight = true;
+      try {
+        return await runSync({ pullFromCloud });
+      } finally {
+        syncGuard.current.inFlight = false;
+        syncGuard.current.lastAt = Date.now();
+      }
+    },
+    [runSync]
+  );
+
+  const syncNow = useCallback(
+    () => runSyncThrottled({ pullFromCloud: true, force: true }),
+    [runSyncThrottled]
+  );
 
   useEffect(() => {
     if (!token) {
@@ -151,6 +177,7 @@ export function DebtProvider({ children }) {
     }
 
     let cancelled = false;
+    syncGuard.current.lastAt = 0;
 
     (async () => {
       const online = await getIsOnline();
@@ -171,20 +198,26 @@ export function DebtProvider({ children }) {
       await refreshPendingCount();
 
       if (online && !cancelled) {
-        await runSync({ pullFromCloud: true });
+        await runSyncThrottled({ pullFromCloud: true, force: true });
       }
     })();
+
+    if (Platform.OS === 'web') {
+      return () => {
+        cancelled = true;
+      };
+    }
 
     const unsubNet = subscribeNetwork((online) => {
       setIsOffline(!online);
       if (online) {
-        runSync({ pullFromCloud: true });
+        runSyncThrottled({ pullFromCloud: true });
       }
     });
 
     const appSub = AppState.addEventListener('change', (next) => {
       if (next === 'active') {
-        runSync({ pullFromCloud: true });
+        runSyncThrottled({ pullFromCloud: true });
       }
     });
 
@@ -193,7 +226,7 @@ export function DebtProvider({ children }) {
       unsubNet();
       appSub.remove();
     };
-  }, [token, runSync, refreshPendingCount]);
+  }, [token, runSyncThrottled, refreshPendingCount]);
 
   const addContact = useCallback(
     async ({ name, phone, notes, photoUri }) => {
@@ -315,12 +348,14 @@ export function DebtProvider({ children }) {
   );
 
   const addTransaction = useCallback(
-    async ({ contactId, amount, type, description }) => {
+    async ({ contactId, amount, type, description, date: transactionDate }) => {
       const value = Number(amount);
       if (!contactId || !value || value <= 0) {
         throw new Error('Invalid transaction');
       }
-      const createdAtISO = new Date().toISOString();
+      const createdAtISO = transactionDate
+        ? toTransactionDateISO(transactionDate)
+        : new Date().toISOString();
       const dueDate = computeDueDateISO({ type, createdAtISO });
       const payload = {
         contactId,
@@ -446,8 +481,13 @@ export function DebtProvider({ children }) {
   }, [contacts, transactions, cacheLocally]);
 
   const refreshFromCloud = useCallback(async () => {
-    await runSync({ pullFromCloud: true });
-  }, [runSync]);
+    await runSyncThrottled({ pullFromCloud: true, force: true });
+  }, [runSyncThrottled]);
+
+  const recentTransactions = useMemo(
+    () => [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [transactions]
+  );
 
   const getContactById = useCallback(
     (id) => contacts.find((c) => c.id === id),
@@ -485,9 +525,7 @@ export function DebtProvider({ children }) {
       refreshFromCloud,
       getContactById,
       getTransactionsForContact,
-      recentTransactions: [...transactions].sort(
-        (a, b) => new Date(b.date) - new Date(a.date)
-      ),
+      recentTransactions,
     }),
     [
       isReady,
@@ -499,6 +537,7 @@ export function DebtProvider({ children }) {
       contacts,
       transactions,
       settings,
+      recentTransactions,
       addContact,
       updateContact,
       deleteContact,

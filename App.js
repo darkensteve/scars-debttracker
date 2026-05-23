@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Platform, StyleSheet, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -30,6 +30,7 @@ import PinSetupScreen from './app/screens/PinSetupScreen';
 import SplashScreen from './app/screens/SplashScreen';
 import PinLockScreen from './app/screens/PinLockScreen';
 import WebPreviewFrame from './app/components/WebPreviewFrame';
+import { setupGlobalFonts } from './app/setupGlobalFonts';
 import { paperTheme } from './app/theme/paperTheme';
 import { colors } from './app/theme/colors';
 import { useAppSecurity } from './app/hooks/useAppSecurity';
@@ -189,12 +190,14 @@ function AppNavigator() {
 
   const bothReady = isReady && isAuthReady;
 
+  const handleLock = useCallback(() => {
+    if (isPinEnabled) lockApp();
+  }, [isPinEnabled, lockApp]);
+
   useAppSecurity({
-    enabled: true,
+    enabled: Platform.OS !== 'web',
     isLocked: false,
-    onLock: () => {
-      if (isPinEnabled) lockApp();
-    },
+    onLock: handleLock,
   });
 
   useEffect(() => {
@@ -274,6 +277,10 @@ export default function App() {
     Poppins_600SemiBold,
     Poppins_700Bold,
   });
+
+  useEffect(() => {
+    if (fontsLoaded) setupGlobalFonts();
+  }, [fontsLoaded]);
 
   if (!fontsLoaded) return null;
 

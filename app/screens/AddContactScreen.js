@@ -1,15 +1,20 @@
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Text, TextInput } from 'react-native-paper';
+import { Button, Switch, Text, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import DatePickerField from '../components/DatePickerField';
 import { useDebt } from '../context/DebtContext';
+import { startOfDay } from '../lib/dateFilters';
 import { colors } from '../theme/colors';
 
 export default function AddContactScreen({ navigation }) {
-  const { addContact, isOffline, pendingSyncCount } = useDebt();
+  const { addContact, addTransaction, isOffline, pendingSyncCount, settings } = useDebt();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
+  const [hasExistingDebt, setHasExistingDebt] = useState(false);
+  const [openingAmount, setOpeningAmount] = useState('');
+  const [startLentDate, setStartLentDate] = useState(() => startOfDay(new Date()));
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -17,12 +22,46 @@ export default function AddContactScreen({ navigation }) {
       Alert.alert('Missing name', "Please enter the person's name.");
       return;
     }
+
+    let amount = 0;
+    if (hasExistingDebt) {
+      amount = parseFloat(openingAmount.replace(/,/g, ''));
+      if (!amount || amount <= 0) {
+        Alert.alert(
+          'Amount required',
+          'Enter how much they currently owe you, or turn off "Already owes you".'
+        );
+        return;
+      }
+      if (!startLentDate) {
+        Alert.alert('Start lent date', 'Pick when you first lent them money.');
+        return;
+      }
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      if (startLentDate > todayEnd) {
+        Alert.alert('Invalid date', 'Start lent cannot be in the future.');
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const contact = await addContact({ name, phone, notes });
       if (!contact?.id) {
         throw new Error('Server did not return a contact id.');
       }
+
+      if (hasExistingDebt && amount > 0) {
+        await addTransaction({
+          contactId: contact.id,
+          amount,
+          type: 'loan',
+          description: 'Opening balance',
+          date: startLentDate,
+        });
+      }
+
       const syncNote =
         isOffline || pendingSyncCount > 0
           ? ' Saved on this phone — will sync to your account when internet is available.'
@@ -53,7 +92,6 @@ export default function AddContactScreen({ navigation }) {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      {/* Header banner */}
       <View style={styles.banner}>
         <View style={styles.bannerIcon}>
           <MaterialCommunityIcons name="account-plus-outline" size={28} color={colors.primary} />
@@ -62,7 +100,6 @@ export default function AddContactScreen({ navigation }) {
         <Text style={styles.bannerSub}>Fill in the details below to add someone.</Text>
       </View>
 
-      {/* Form card */}
       <View style={styles.card}>
         <View style={styles.fieldGroup}>
           <View style={styles.fieldLabel}>
@@ -110,6 +147,57 @@ export default function AddContactScreen({ navigation }) {
             placeholder="Where you know them, reminders..."
             outlineStyle={styles.inputOutline}
           />
+        </View>
+
+        <View style={styles.debtSection}>
+          <View style={styles.debtToggleRow}>
+            <View style={styles.debtToggleText}>
+              <Text style={styles.debtToggleTitle}>Already owes you</Text>
+              <Text style={styles.debtToggleSub}>
+                Turn on if you lent them money before adding them here.
+              </Text>
+            </View>
+            <Switch
+              value={hasExistingDebt}
+              onValueChange={(on) => {
+                setHasExistingDebt(on);
+                if (on && !startLentDate) {
+                  setStartLentDate(startOfDay(new Date()));
+                }
+              }}
+              color={colors.primary}
+            />
+          </View>
+
+          {hasExistingDebt ? (
+            <View style={styles.debtFields}>
+              <View style={styles.fieldGroup}>
+                <View style={styles.fieldLabel}>
+                  <MaterialCommunityIcons name="cash" size={16} color={colors.danger} />
+                  <Text style={styles.labelText}>
+                    Amount they owe <Text style={styles.required}>*</Text>
+                  </Text>
+                </View>
+                <TextInput
+                  value={openingAmount}
+                  onChangeText={setOpeningAmount}
+                  mode="outlined"
+                  style={styles.input}
+                  keyboardType="decimal-pad"
+                  placeholder={`e.g. 5000`}
+                  left={<TextInput.Affix text={settings.currency || '₱'} />}
+                  outlineStyle={styles.inputOutline}
+                />
+              </View>
+
+              <DatePickerField
+                label="Start lent"
+                hint="When you first lent them money (e.g. last month)"
+                value={startLentDate}
+                onChange={setStartLentDate}
+              />
+            </View>
+          ) : null}
         </View>
 
         <Button
@@ -199,6 +287,37 @@ const styles = StyleSheet.create({
   inputOutline: {
     borderRadius: 10,
     borderColor: colors.border,
+  },
+  debtSection: {
+    marginBottom: 8,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  debtToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 12,
+  },
+  debtToggleText: {
+    flex: 1,
+  },
+  debtToggleTitle: {
+    fontSize: 14,
+    fontFamily: 'Poppins_600SemiBold',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  debtToggleSub: {
+    fontSize: 11,
+    fontFamily: 'Poppins_400Regular',
+    color: colors.textMuted,
+    lineHeight: 16,
+  },
+  debtFields: {
+    marginBottom: 8,
   },
   button: {
     marginTop: 8,

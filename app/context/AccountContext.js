@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, setApiToken, clearApiToken } from '../lib/apiClient';
 import { saveSession, loadSession, clearSession } from '../lib/sessionStorage';
+import { clearQueue } from '../lib/syncQueue';
 
 const LOCAL_DATA_KEY = '@debttracker_data_v1';
 const LOCAL_CACHE_KEY = '@debttracker_cache_v1';
@@ -30,6 +31,7 @@ export function AccountProvider({ children }) {
                 id: me._id?.toString() || me.id,
                 name: me.name,
                 email: me.email,
+                phone: me.phone || null,
               });
             } catch {
               await clearSession();
@@ -80,12 +82,32 @@ export function AccountProvider({ children }) {
         id: data.user?.id || data.user?._id?.toString(),
         name: data.user?.name,
         email: data.user?.email,
+        phone: data.user?.phone || null,
       };
       await persistSession(data.token, normalizedUser);
       await tryImportLocalData();
       return data;
     },
     [persistSession, tryImportLocalData]
+  );
+
+  const updateUserPhone = useCallback(
+    async (phone) => {
+      const data = await api.updatePhone({ phone });
+      const nextUser = {
+        id: data.user?.id || data.user?._id?.toString(),
+        name: data.user?.name,
+        email: data.user?.email,
+        phone: data.user?.phone,
+      };
+      setUser(nextUser);
+      const { token: storedToken } = await loadSession();
+      if (storedToken) {
+        await saveSession(storedToken, nextUser);
+      }
+      return data;
+    },
+    []
   );
 
   const login = useCallback(
@@ -95,6 +117,7 @@ export function AccountProvider({ children }) {
         id: data.user?.id || data.user?._id?.toString(),
         name: data.user?.name,
         email: data.user?.email,
+        phone: data.user?.phone || null,
       };
       await persistSession(data.token, normalizedUser);
       await tryImportLocalData();
@@ -108,6 +131,7 @@ export function AccountProvider({ children }) {
     setToken(null);
     setUser(null);
     await clearSession();
+    await clearQueue();
     await AsyncStorage.multiRemove([LOCAL_CACHE_KEY, LOCAL_DATA_KEY]);
     setSessionKey((k) => k + 1);
   }, []);
@@ -125,6 +149,7 @@ export function AccountProvider({ children }) {
         register,
         login,
         logout,
+        updateUserPhone,
       }}
     >
       {children}

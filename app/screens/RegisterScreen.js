@@ -11,6 +11,7 @@ import {
 import { Button, Text, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAccount } from '../context/AccountContext';
+import { formatPhoneHint, isValidPhone } from '../lib/phoneUtils';
 import { colors } from '../theme/colors';
 
 export default function RegisterScreen({ navigation }) {
@@ -27,8 +28,12 @@ export default function RegisterScreen({ navigation }) {
     const trimmedName = name.trim();
     const trimmedEmail = email.trim().toLowerCase();
 
-    if (!trimmedName || !trimmedEmail || !password) {
-      Alert.alert('Missing fields', 'Please fill in name, email, and password.');
+    if (!trimmedName || !trimmedEmail || !password || !phone.trim()) {
+      Alert.alert('Missing fields', 'Please fill in name, email, mobile number, and password.');
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      Alert.alert('Invalid phone', 'Enter a valid mobile number (e.g. 09171234567).');
       return;
     }
     if (password.length < 6) {
@@ -101,7 +106,7 @@ export default function RegisterScreen({ navigation }) {
             outlineStyle={styles.inputOutline}
           />
           <TextInput
-            label="Phone (optional)"
+            label="Mobile number"
             value={phone}
             onChangeText={setPhone}
             mode="outlined"
@@ -110,6 +115,7 @@ export default function RegisterScreen({ navigation }) {
             left={<TextInput.Icon icon="phone-outline" color={colors.primary} />}
             outlineStyle={styles.inputOutline}
           />
+          <Text style={styles.phoneHint}>{formatPhoneHint()}</Text>
           <TextInput
             label="Password"
             value={password}
@@ -205,6 +211,14 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: colors.surface,
     marginBottom: 8,
+  },
+  phoneHint: {
+    fontSize: 11,
+    fontFamily: 'Poppins_400Regular',
+    color: colors.textMuted,
+    marginBottom: 4,
+    marginTop: -4,
+    lineHeight: 16,
   },
   inputOutline: {
     borderRadius: 10,

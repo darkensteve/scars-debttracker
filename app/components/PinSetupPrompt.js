@@ -26,7 +26,7 @@ export default function PinSetupPrompt({ navigation }) {
 
       Alert.alert(
         'Protect your records',
-        'Set a 6-digit PIN so balances and names stay hidden when you switch apps — similar to GCash. SCARS never reads Samsung Secure Folder or other apps.',
+        'Set a 6-digit PIN so balances and names stay hidden when you switch apps. Use the mobile number on your account if you ever forget your PIN.',
         [
           { text: 'Not now', style: 'cancel' },
           {

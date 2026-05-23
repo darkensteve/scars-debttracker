@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDebt } from '../context/DebtContext';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
+import { isValidPhone, formatPhoneHint } from '../lib/phoneUtils';
 import { colors } from '../theme/colors';
 
 function SectionHeader({ icon, title }) {
@@ -33,11 +34,17 @@ function InfoRow({ icon, label, value }) {
 export default function SettingsScreen({ navigation }) {
   const { settings, updateSettings, clearAllData, contacts, transactions } = useDebt();
   const { isPinEnabled, verifyPin, removePin } = useAuth();
-  const { user, logout } = useAccount();
+  const { user, logout, updateUserPhone } = useAccount();
   const [businessName, setBusinessName] = useState(settings.businessName);
   const [currency, setCurrency] = useState(settings.currency);
+  const [accountPhone, setAccountPhone] = useState(user?.phone || '');
+  const [savingPhone, setSavingPhone] = useState(false);
   const [disablePinInput, setDisablePinInput] = useState('');
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
+
+  useEffect(() => {
+    setAccountPhone(user?.phone || '');
+  }, [user?.phone]);
 
   useEffect(() => {
     setBusinessName(settings.businessName);
@@ -71,6 +78,22 @@ export default function SettingsScreen({ navigation }) {
     } else {
       Alert.alert('Incorrect PIN', 'The PIN you entered is wrong. Please try again.');
       setDisablePinInput('');
+    }
+  };
+
+  const handleSavePhone = async () => {
+    if (!isValidPhone(accountPhone)) {
+      Alert.alert('Invalid phone', 'Enter a valid mobile number (e.g. 09171234567).');
+      return;
+    }
+    setSavingPhone(true);
+    try {
+      await updateUserPhone(accountPhone.trim());
+      Alert.alert('Saved', 'Your mobile number is updated. You can use it for Forgot PIN.');
+    } catch (e) {
+      Alert.alert('Could not save', e.message || 'Try again when online.');
+    } finally {
+      setSavingPhone(false);
     }
   };
 
@@ -132,6 +155,29 @@ export default function SettingsScreen({ navigation }) {
         <InfoRow icon="account-outline" label="Signed in as" value={user?.name || '—'} />
         <View style={styles.divider} />
         <InfoRow icon="email-outline" label="Email" value={user?.email || '—'} />
+        <View style={styles.divider} />
+        <Text style={styles.fieldHint}>{formatPhoneHint()}</Text>
+        <TextInput
+          label="Mobile number (for Forgot PIN)"
+          value={accountPhone}
+          onChangeText={setAccountPhone}
+          mode="outlined"
+          keyboardType="phone-pad"
+          style={styles.input}
+          left={<TextInput.Icon icon="phone-outline" color={colors.primary} />}
+          outlineStyle={styles.inputOutline}
+        />
+        <Button
+          mode="contained-tonal"
+          onPress={handleSavePhone}
+          loading={savingPhone}
+          disabled={savingPhone}
+          style={styles.phoneSaveBtn}
+          buttonColor={colors.primaryLight}
+          textColor={colors.primary}
+        >
+          Save mobile number
+        </Button>
         <View style={styles.divider} />
         <Button
           mode="outlined"
@@ -199,7 +245,7 @@ export default function SettingsScreen({ navigation }) {
         <InfoRow
           icon="cloud-check-outline"
           label="Storage"
-          value="Saved to your account in the cloud"
+          value="Works offline on this phone; syncs to your cloud account when online"
         />
       </View>
 
@@ -398,6 +444,17 @@ const styles = StyleSheet.create({
   },
   fieldGroup: {
     gap: 4,
+  },
+  fieldHint: {
+    fontSize: 11,
+    fontFamily: 'Poppins_400Regular',
+    color: colors.textMuted,
+    marginBottom: 4,
+    lineHeight: 16,
+  },
+  phoneSaveBtn: {
+    marginBottom: 8,
+    borderRadius: 10,
   },
   input: {
     backgroundColor: colors.surface,

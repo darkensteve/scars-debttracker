@@ -40,6 +40,13 @@ export function AuthProvider({ children }) {
     setIsUnlocked(false);
   }, []);
 
+  /** After forgot-PIN recovery — unlock immediately with new PIN. */
+  const savePinAndUnlock = useCallback(async (pin) => {
+    await storePin(pin);
+    setIsPinEnabled(true);
+    setIsUnlocked(true);
+  }, []);
+
   const removePin = useCallback(async () => {
     await clearPin();
     setIsPinEnabled(false);
@@ -56,6 +63,7 @@ export function AuthProvider({ children }) {
         lockApp,
         verifyPin,
         savePin,
+        savePinAndUnlock,
         removePin,
       }}
     >

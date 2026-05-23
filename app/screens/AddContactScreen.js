@@ -6,7 +6,7 @@ import { useDebt } from '../context/DebtContext';
 import { colors } from '../theme/colors';
 
 export default function AddContactScreen({ navigation }) {
-  const { addContact } = useDebt();
+  const { addContact, isOffline, pendingSyncCount } = useDebt();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
@@ -23,9 +23,13 @@ export default function AddContactScreen({ navigation }) {
       if (!contact?.id) {
         throw new Error('Server did not return a contact id.');
       }
+      const syncNote =
+        isOffline || pendingSyncCount > 0
+          ? ' Saved on this phone — will sync to your account when internet is available.'
+          : '';
       Alert.alert(
         'Contact added',
-        `${name.trim()} has been added to your list.`,
+        `${name.trim()} has been added to your list.${syncNote}`,
         [
           {
             text: 'OK',
@@ -37,10 +41,7 @@ export default function AddContactScreen({ navigation }) {
         ]
       );
     } catch (e) {
-      Alert.alert(
-        'Could not save contact',
-        e?.message || 'Check your internet connection and try again.'
-      );
+      Alert.alert('Could not save contact', e?.message || 'Please try again.');
     } finally {
       setSaving(false);
     }

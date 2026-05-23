@@ -41,6 +41,10 @@ export const api = {
   login: (body) =>
     request('/api/auth/login', { method: 'POST', body: JSON.stringify(body) }),
   me: () => request('/api/auth/me'),
+  verifyPinRecovery: (body) =>
+    request('/api/auth/verify-pin-recovery', { method: 'POST', body: JSON.stringify(body) }),
+  updatePhone: (body) =>
+    request('/api/auth/phone', { method: 'PUT', body: JSON.stringify(body) }),
   sync: () => request('/api/sync'),
   updateSettings: (body) =>
     request('/api/sync/settings', { method: 'PUT', body: JSON.stringify(body) }),

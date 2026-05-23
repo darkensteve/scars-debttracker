@@ -36,7 +36,7 @@ const TYPE_OPTIONS = [
 ];
 
 export default function AddTransactionScreen({ navigation, route }) {
-  const { contacts, addTransaction, settings } = useDebt();
+  const { contacts, addTransaction, settings, isOffline, pendingSyncCount } = useDebt();
   const preselectedId = route?.params?.contactId;
   const [contactId, setContactId] = useState(
     preselectedId || contacts[0]?.id || ''
@@ -97,7 +97,11 @@ export default function AddTransactionScreen({ navigation, route }) {
       };
 
       const { title, body } = messages[transactionType];
-      Alert.alert(title, body, [{ text: 'Got it' }]);
+      const syncNote =
+        isOffline || pendingSyncCount > 0
+          ? ' Saved on this phone — will sync when you have internet.'
+          : '';
+      Alert.alert(title, `${body}${syncNote}`, [{ text: 'Got it' }]);
       setAmount('');
       setDescription('');
       setTransactionType('loan');

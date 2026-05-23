@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,9 +10,11 @@ import {
 import { Button, Text, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAccount } from '../context/AccountContext';
+import { useAppMessage } from '../context/AppMessageContext';
 import { colors } from '../theme/colors';
 
 export default function LoginScreen({ navigation }) {
+  const { showMessage } = useAppMessage();
   const { login } = useAccount();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,14 +24,22 @@ export default function LoginScreen({ navigation }) {
   const handleLogin = async () => {
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail || !password) {
-      Alert.alert('Missing fields', 'Please enter your email and password.');
+      showMessage({
+        variant: 'warning',
+        title: 'Missing fields',
+        message: 'Please enter your email and password.',
+      });
       return;
     }
     setLoading(true);
     try {
       await login({ email: trimmedEmail, password });
     } catch (e) {
-      Alert.alert('Sign in failed', e.message || 'Could not sign in. Check your details and try again.');
+      showMessage({
+        variant: 'error',
+        title: 'Sign in failed',
+        message: e.message || 'Could not sign in. Check your details and try again.',
+      });
     } finally {
       setLoading(false);
     }

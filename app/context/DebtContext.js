@@ -242,8 +242,9 @@ export function DebtProvider({ children }) {
         ...payload,
         createdAt: new Date().toISOString(),
       };
-      const nextContacts = [contact, ...contacts];
-      await saveAll(nextContacts, transactions);
+      const { contacts: curContacts, transactions: curTransactions } = stateRef.current;
+      const nextContacts = [contact, ...curContacts];
+      await saveAll(nextContacts, curTransactions);
 
       const online = await getIsOnline();
       if (online) {
@@ -251,8 +252,11 @@ export function DebtProvider({ children }) {
           const res = await api.createContact(payload);
           if (!res?.contact) throw new Error('Invalid response from server.');
           const serverContact = mapContactFromApi(res.contact);
-          const remapped = nextContacts.map((c) => (c.id === localId ? serverContact : c));
-          await saveAll(remapped, transactions);
+          const latest = stateRef.current;
+          const remapped = latest.contacts.map((c) =>
+            c.id === localId ? serverContact : c
+          );
+          await saveAll(remapped, latest.transactions);
           await refreshPendingCount();
           return serverContact;
         } catch {
@@ -266,7 +270,7 @@ export function DebtProvider({ children }) {
       await refreshPendingCount();
       return contact;
     },
-    [contacts, transactions, saveAll, refreshPendingCount]
+    [saveAll, refreshPendingCount]
   );
 
   const updateContact = useCallback(
@@ -277,7 +281,8 @@ export function DebtProvider({ children }) {
       if (updates.notes !== undefined) body.notes = updates.notes.trim();
       if (updates.photoUri !== undefined) body.photoUri = updates.photoUri || null;
 
-      const nextContacts = contacts.map((c) =>
+      const { contacts: curContacts, transactions: curTransactions } = stateRef.current;
+      const nextContacts = curContacts.map((c) =>
         c.id === id
           ? {
               ...c,
@@ -290,7 +295,7 @@ export function DebtProvider({ children }) {
             }
           : c
       );
-      await saveAll(nextContacts, transactions);
+      await saveAll(nextContacts, curTransactions);
 
       if (isLocalId(id)) {
         const queue = await loadQueue();
@@ -316,13 +321,14 @@ export function DebtProvider({ children }) {
       await enqueue({ type: 'UPDATE_CONTACT', refId: id, payload: body });
       await refreshPendingCount();
     },
-    [contacts, transactions, saveAll, refreshPendingCount]
+    [saveAll, refreshPendingCount]
   );
 
   const deleteContact = useCallback(
     async (id) => {
-      const nextContacts = contacts.filter((c) => c.id !== id);
-      const nextTransactions = transactions.filter((t) => t.contactId !== id);
+      const { contacts: curContacts, transactions: curTransactions } = stateRef.current;
+      const nextContacts = curContacts.filter((c) => c.id !== id);
+      const nextTransactions = curTransactions.filter((t) => t.contactId !== id);
       await saveAll(nextContacts, nextTransactions);
 
       if (isLocalId(id)) {
@@ -344,7 +350,7 @@ export function DebtProvider({ children }) {
       await enqueue({ type: 'DELETE_CONTACT', refId: id });
       await refreshPendingCount();
     },
-    [contacts, transactions, saveAll, refreshPendingCount]
+    [saveAll, refreshPendingCount]
   );
 
   const addTransaction = useCallback(
@@ -376,18 +382,20 @@ export function DebtProvider({ children }) {
         date: createdAtISO,
         dueDate,
       };
-      const nextTransactions = [transaction, ...transactions];
-      await saveAll(contacts, nextTransactions);
+      const { contacts: curContacts, transactions: curTransactions } = stateRef.current;
+      const nextTransactions = [transaction, ...curTransactions];
+      await saveAll(curContacts, nextTransactions);
 
       const online = await getIsOnline();
       if (online) {
         try {
           const res = await api.createTransaction(payload);
           const serverTx = mapTransactionFromApi(res.transaction);
-          const remapped = nextTransactions.map((t) =>
+          const latest = stateRef.current;
+          const remapped = latest.transactions.map((t) =>
             t.id === localId ? serverTx : t
           );
-          await saveAll(contacts, remapped);
+          await saveAll(latest.contacts, remapped);
           await refreshPendingCount();
           return serverTx;
         } catch {
@@ -401,13 +409,14 @@ export function DebtProvider({ children }) {
       await refreshPendingCount();
       return transaction;
     },
-    [contacts, transactions, saveAll, refreshPendingCount]
+    [saveAll, refreshPendingCount]
   );
 
   const deleteTransaction = useCallback(
     async (id) => {
-      const nextTransactions = transactions.filter((t) => t.id !== id);
-      await saveAll(contacts, nextTransactions);
+      const { contacts: curContacts, transactions: curTransactions } = stateRef.current;
+      const nextTransactions = curTransactions.filter((t) => t.id !== id);
+      await saveAll(curContacts, nextTransactions);
 
       if (isLocalId(id)) {
         await removeQueueItemsForLocalTransaction(id);
@@ -428,17 +437,19 @@ export function DebtProvider({ children }) {
       await enqueue({ type: 'DELETE_TRANSACTION', refId: id });
       await refreshPendingCount();
     },
-    [contacts, transactions, saveAll, refreshPendingCount]
+    [saveAll, refreshPendingCount]
   );
 
   const updateSettings = useCallback(
     async (updates) => {
-      const nextSettings = { ...settings, ...updates };
+      const { contacts: curContacts, transactions: curTransactions, settings: curSettings } =
+        stateRef.current;
+      const nextSettings = { ...curSettings, ...updates };
       const payload = {
         businessName: nextSettings.businessName,
         currency: nextSettings.currency,
       };
-      await saveAll(contacts, transactions, nextSettings);
+      await saveAll(curContacts, curTransactions, nextSettings);
 
       const online = await getIsOnline();
       if (online) {
@@ -452,17 +463,18 @@ export function DebtProvider({ children }) {
       await enqueue({ type: 'UPDATE_SETTINGS', payload });
       await refreshPendingCount();
     },
-    [contacts, transactions, settings, saveAll, refreshPendingCount]
+    [saveAll, refreshPendingCount]
   );
 
   const clearAllData = useCallback(async () => {
+    const { contacts: curContacts, transactions: curTransactions } = stateRef.current;
     const online = await getIsOnline();
     if (online) {
       try {
-        for (const t of [...transactions]) {
+        for (const t of [...curTransactions]) {
           if (!isLocalId(t.id)) await api.deleteTransaction(t.id);
         }
-        for (const c of [...contacts]) {
+        for (const c of [...curContacts]) {
           if (!isLocalId(c.id)) await api.deleteContact(c.id);
         }
         const emptySettings = { businessName: 'SCARS', currency: '₱' };
@@ -478,7 +490,7 @@ export function DebtProvider({ children }) {
     setSettings(emptySettings);
     await cacheLocally([], [], emptySettings);
     setPendingSyncCount(0);
-  }, [contacts, transactions, cacheLocally]);
+  }, [cacheLocally]);
 
   const refreshFromCloud = useCallback(async () => {
     await runSyncThrottled({ pullFromCloud: true, force: true });

@@ -17,6 +17,7 @@ import {
 import { DebtProvider, useDebt } from './app/context/DebtContext';
 import { AuthProvider, useAuth } from './app/context/AuthContext';
 import { AccountProvider, useAccount } from './app/context/AccountContext';
+import { AppMessageProvider } from './app/context/AppMessageContext';
 import LoginScreen from './app/screens/LoginScreen';
 import RegisterScreen from './app/screens/RegisterScreen';
 import DashboardScreen from './app/screens/DashboardScreen';
@@ -288,11 +289,13 @@ export default function App() {
     <WebPreviewFrame>
       <SafeAreaProvider>
         <PaperProvider theme={paperTheme}>
-          <AccountProvider>
-            <NavigationContainer>
-              <RootNavigation />
-            </NavigationContainer>
-          </AccountProvider>
+          <AppMessageProvider>
+            <AccountProvider>
+              <NavigationContainer>
+                <RootNavigation />
+              </NavigationContainer>
+            </AccountProvider>
+          </AppMessageProvider>
         </PaperProvider>
       </SafeAreaProvider>
     </WebPreviewFrame>

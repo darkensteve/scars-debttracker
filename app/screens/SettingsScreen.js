@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Button, Text, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useAppMessage } from '../context/AppMessageContext';
 import { useDebt } from '../context/DebtContext';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
@@ -32,6 +33,7 @@ function InfoRow({ icon, label, value }) {
 }
 
 export default function SettingsScreen({ navigation }) {
+  const { showMessage, showConfirm } = useAppMessage();
   const { settings, updateSettings, clearAllData, contacts, transactions } = useDebt();
   const { isPinEnabled, verifyPin, removePin } = useAuth();
   const { user, logout, updateUserPhone } = useAccount();
@@ -56,7 +58,11 @@ export default function SettingsScreen({ navigation }) {
       businessName: businessName.trim() || 'SCARS',
       currency: currency.trim() || '₱',
     });
-    Alert.alert('Settings saved', 'Your business name and currency symbol have been updated successfully.');
+    showMessage({
+      variant: 'success',
+      title: 'Settings saved',
+      message: 'Your business name and currency symbol have been updated successfully.',
+    });
   };
 
   const handlePinToggle = (value) => {
@@ -74,64 +80,82 @@ export default function SettingsScreen({ navigation }) {
       await removePin();
       setShowDisableConfirm(false);
       setDisablePinInput('');
-      Alert.alert('PIN disabled', 'Your PIN lock has been removed.');
+      showMessage({
+        variant: 'success',
+        title: 'PIN disabled',
+        message: 'Your PIN lock has been removed.',
+      });
     } else {
-      Alert.alert('Incorrect PIN', 'The PIN you entered is wrong. Please try again.');
+      showMessage({
+        variant: 'error',
+        title: 'Incorrect PIN',
+        message: 'The PIN you entered is wrong. Please try again.',
+      });
       setDisablePinInput('');
     }
   };
 
   const handleSavePhone = async () => {
     if (!isValidPhone(accountPhone)) {
-      Alert.alert('Invalid phone', 'Enter a valid mobile number (e.g. 09171234567).');
+      showMessage({
+        variant: 'warning',
+        title: 'Invalid phone',
+        message: 'Enter a valid mobile number (e.g. 09171234567).',
+      });
       return;
     }
     setSavingPhone(true);
     try {
       await updateUserPhone(accountPhone.trim());
-      Alert.alert('Saved', 'Your mobile number is updated. You can use it for Forgot PIN.');
+      showMessage({
+        variant: 'success',
+        title: 'Saved',
+        message: 'Your mobile number is updated. You can use it for Forgot PIN.',
+      });
     } catch (e) {
-      Alert.alert('Could not save', e.message || 'Try again when online.');
+      showMessage({
+        variant: 'error',
+        title: 'Could not save',
+        message: e.message || 'Try again when you are online.',
+      });
     } finally {
       setSavingPhone(false);
     }
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      'Sign out?',
-      'Your data stays saved in the cloud. Sign in again anytime with your email and password.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign out',
-          style: 'destructive',
-          onPress: () => {
-            logout();
-          },
-        },
-      ]
-    );
+    showConfirm({
+      variant: 'info',
+      title: 'Sign out?',
+      message:
+        'Your data stays saved in the cloud. Sign in again anytime with your email and password.',
+      confirmLabel: 'Sign out',
+      cancelLabel: 'Cancel',
+      destructive: true,
+      onConfirm: () => logout(),
+    });
   };
 
   const handleClearData = () => {
-    Alert.alert(
-      'Delete all data?',
-      'This removes every contact and transaction from this phone. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete everything',
-          style: 'destructive',
-          onPress: async () => {
-            await clearAllData();
-            setBusinessName('SCARS');
-            setCurrency('₱');
-            Alert.alert('Done', 'All data has been cleared.');
-          },
-        },
-      ]
-    );
+    showConfirm({
+      variant: 'warning',
+      title: 'Delete all data?',
+      message:
+        'This removes every contact and transaction from this phone and your cloud account. This cannot be undone.',
+      confirmLabel: 'Delete everything',
+      cancelLabel: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        await clearAllData();
+        setBusinessName('SCARS');
+        setCurrency('₱');
+        showMessage({
+          variant: 'success',
+          title: 'Done',
+          message: 'All data has been cleared.',
+        });
+      },
+    });
   };
 
   return (

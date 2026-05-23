@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Switch, Text, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DatePickerField from '../components/DatePickerField';
+import { useAppMessage } from '../context/AppMessageContext';
 import { useDebt } from '../context/DebtContext';
 import { startOfDay } from '../lib/dateFilters';
 import { colors } from '../theme/colors';
 
 export default function AddContactScreen({ navigation }) {
+  const { showMessage } = useAppMessage();
   const { addContact, addTransaction, isOffline, pendingSyncCount, settings } = useDebt();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -19,7 +21,11 @@ export default function AddContactScreen({ navigation }) {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Missing name', "Please enter the person's name.");
+      showMessage({
+        variant: 'warning',
+        title: 'Name required',
+        message: "Please enter the person's full name before saving.",
+      });
       return;
     }
 
@@ -27,20 +33,30 @@ export default function AddContactScreen({ navigation }) {
     if (hasExistingDebt) {
       amount = parseFloat(openingAmount.replace(/,/g, ''));
       if (!amount || amount <= 0) {
-        Alert.alert(
-          'Amount required',
-          'Enter how much they currently owe you, or turn off "Already owes you".'
-        );
+        showMessage({
+          variant: 'warning',
+          title: 'Amount required',
+          message:
+            'Enter how much they currently owe you, or turn off "Already owes you" if there is no balance yet.',
+        });
         return;
       }
       if (!startLentDate) {
-        Alert.alert('Start lent date', 'Pick when you first lent them money.');
+        showMessage({
+          variant: 'warning',
+          title: 'Start lent date',
+          message: 'Choose the date when you first lent them money.',
+        });
         return;
       }
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
       if (startLentDate > todayEnd) {
-        Alert.alert('Invalid date', 'Start lent cannot be in the future.');
+        showMessage({
+          variant: 'warning',
+          title: 'Invalid date',
+          message: 'Start lent cannot be a future date. Please pick today or an earlier date.',
+        });
         return;
       }
     }
@@ -62,158 +78,165 @@ export default function AddContactScreen({ navigation }) {
         });
       }
 
+      const trimmedName = name.trim();
       const syncNote =
         isOffline || pendingSyncCount > 0
-          ? ' Saved on this phone — will sync to your account when internet is available.'
+          ? '\n\nThis was saved on your phone and will sync when you are back online.'
           : '';
-      Alert.alert(
-        'Contact added',
-        `${name.trim()} has been added to your list.${syncNote}`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              navigation.navigate('ContactsList');
-              navigation.navigate('ContactDetail', { contactId: contact.id });
-            },
-          },
-        ]
-      );
+      const balanceNote =
+        hasExistingDebt && amount > 0
+          ? `\n\nOpening balance of ${settings.currency || '₱'}${amount.toLocaleString()} was recorded.`
+          : '';
+
+      showMessage({
+        variant: 'success',
+        title: 'Contact saved',
+        message: `${trimmedName} has been added to your list.${balanceNote}${syncNote}`,
+        confirmLabel: 'Continue',
+        onConfirm: () => {
+          navigation.navigate('ContactsList');
+          navigation.navigate('ContactDetail', { contactId: contact.id });
+        },
+      });
     } catch (e) {
-      Alert.alert('Could not save contact', e?.message || 'Please try again.');
+      showMessage({
+        variant: 'error',
+        title: 'Could not save',
+        message: e?.message || 'Something went wrong while saving. Please try again.',
+      });
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={styles.banner}>
-        <View style={styles.bannerIcon}>
-          <MaterialCommunityIcons name="account-plus-outline" size={28} color={colors.primary} />
-        </View>
-        <Text style={styles.bannerTitle}>New contact</Text>
-        <Text style={styles.bannerSub}>Fill in the details below to add someone.</Text>
-      </View>
-
-      <View style={styles.card}>
-        <View style={styles.fieldGroup}>
-          <View style={styles.fieldLabel}>
-            <MaterialCommunityIcons name="account-outline" size={16} color={colors.primary} />
-            <Text style={styles.labelText}>Full name <Text style={styles.required}>*</Text></Text>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.banner}>
+          <View style={styles.bannerIcon}>
+            <MaterialCommunityIcons name="account-plus-outline" size={28} color={colors.primary} />
           </View>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            mode="outlined"
-            style={styles.input}
-            placeholder="e.g. Maria Santos"
-            outlineStyle={styles.inputOutline}
-          />
+          <Text style={styles.bannerTitle}>New contact</Text>
+          <Text style={styles.bannerSub}>Fill in the details below to add someone.</Text>
         </View>
 
-        <View style={styles.fieldGroup}>
-          <View style={styles.fieldLabel}>
-            <MaterialCommunityIcons name="phone-outline" size={16} color={colors.primary} />
-            <Text style={styles.labelText}>Phone <Text style={styles.optional}>(optional)</Text></Text>
-          </View>
-          <TextInput
-            value={phone}
-            onChangeText={setPhone}
-            mode="outlined"
-            style={styles.input}
-            keyboardType="phone-pad"
-            placeholder="09XX XXX XXXX"
-            outlineStyle={styles.inputOutline}
-          />
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <View style={styles.fieldLabel}>
-            <MaterialCommunityIcons name="note-text-outline" size={16} color={colors.primary} />
-            <Text style={styles.labelText}>Notes <Text style={styles.optional}>(optional)</Text></Text>
-          </View>
-          <TextInput
-            value={notes}
-            onChangeText={setNotes}
-            mode="outlined"
-            style={styles.input}
-            multiline
-            numberOfLines={3}
-            placeholder="Where you know them, reminders..."
-            outlineStyle={styles.inputOutline}
-          />
-        </View>
-
-        <View style={styles.debtSection}>
-          <View style={styles.debtToggleRow}>
-            <View style={styles.debtToggleText}>
-              <Text style={styles.debtToggleTitle}>Already owes you</Text>
-              <Text style={styles.debtToggleSub}>
-                Turn on if you lent them money before adding them here.
-              </Text>
+        <View style={styles.card}>
+          <View style={styles.fieldGroup}>
+            <View style={styles.fieldLabel}>
+              <MaterialCommunityIcons name="account-outline" size={16} color={colors.primary} />
+              <Text style={styles.labelText}>Full name <Text style={styles.required}>*</Text></Text>
             </View>
-            <Switch
-              value={hasExistingDebt}
-              onValueChange={(on) => {
-                setHasExistingDebt(on);
-                if (on && !startLentDate) {
-                  setStartLentDate(startOfDay(new Date()));
-                }
-              }}
-              color={colors.primary}
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              mode="outlined"
+              style={styles.input}
+              placeholder="e.g. Maria Santos"
+              outlineStyle={styles.inputOutline}
             />
           </View>
 
-          {hasExistingDebt ? (
-            <View style={styles.debtFields}>
-              <View style={styles.fieldGroup}>
-                <View style={styles.fieldLabel}>
-                  <MaterialCommunityIcons name="cash" size={16} color={colors.danger} />
-                  <Text style={styles.labelText}>
-                    Amount they owe <Text style={styles.required}>*</Text>
-                  </Text>
-                </View>
-                <TextInput
-                  value={openingAmount}
-                  onChangeText={setOpeningAmount}
-                  mode="outlined"
-                  style={styles.input}
-                  keyboardType="decimal-pad"
-                  placeholder={`e.g. 5000`}
-                  left={<TextInput.Affix text={settings.currency || '₱'} />}
-                  outlineStyle={styles.inputOutline}
-                />
-              </View>
+          <View style={styles.fieldGroup}>
+            <View style={styles.fieldLabel}>
+              <MaterialCommunityIcons name="phone-outline" size={16} color={colors.primary} />
+              <Text style={styles.labelText}>Phone <Text style={styles.optional}>(optional)</Text></Text>
+            </View>
+            <TextInput
+              value={phone}
+              onChangeText={setPhone}
+              mode="outlined"
+              style={styles.input}
+              keyboardType="phone-pad"
+              placeholder="09XX XXX XXXX"
+              outlineStyle={styles.inputOutline}
+            />
+          </View>
 
-              <DatePickerField
-                label="Start lent"
-                hint="When you first lent them money (e.g. last month)"
-                value={startLentDate}
-                onChange={setStartLentDate}
+          <View style={styles.fieldGroup}>
+            <View style={styles.fieldLabel}>
+              <MaterialCommunityIcons name="note-text-outline" size={16} color={colors.primary} />
+              <Text style={styles.labelText}>Notes <Text style={styles.optional}>(optional)</Text></Text>
+            </View>
+            <TextInput
+              value={notes}
+              onChangeText={setNotes}
+              mode="outlined"
+              style={styles.input}
+              multiline
+              numberOfLines={3}
+              placeholder="Where you know them, reminders..."
+              outlineStyle={styles.inputOutline}
+            />
+          </View>
+
+          <View style={styles.debtSection}>
+            <View style={styles.debtToggleRow}>
+              <View style={styles.debtToggleText}>
+                <Text style={styles.debtToggleTitle}>Already owes you</Text>
+                <Text style={styles.debtToggleSub}>
+                  Turn on if you lent them money before adding them here.
+                </Text>
+              </View>
+              <Switch
+                value={hasExistingDebt}
+                onValueChange={(on) => {
+                  setHasExistingDebt(on);
+                  if (on && !startLentDate) {
+                    setStartLentDate(startOfDay(new Date()));
+                  }
+                }}
+                color={colors.primary}
               />
             </View>
-          ) : null}
-        </View>
 
-        <Button
-          mode="contained"
-          onPress={handleSave}
-          loading={saving}
-          disabled={saving}
-          style={styles.button}
-          contentStyle={styles.buttonContent}
-          buttonColor={colors.primary}
-          icon="check"
-        >
-          Save contact
-        </Button>
-      </View>
-    </ScrollView>
+            {hasExistingDebt ? (
+              <View style={styles.debtFields}>
+                <View style={styles.fieldGroup}>
+                  <View style={styles.fieldLabel}>
+                    <MaterialCommunityIcons name="cash" size={16} color={colors.danger} />
+                    <Text style={styles.labelText}>
+                      Amount they owe <Text style={styles.required}>*</Text>
+                    </Text>
+                  </View>
+                  <TextInput
+                    value={openingAmount}
+                    onChangeText={setOpeningAmount}
+                    mode="outlined"
+                    style={styles.input}
+                    keyboardType="decimal-pad"
+                    placeholder="e.g. 5000"
+                    left={<TextInput.Affix text={settings.currency || '₱'} />}
+                    outlineStyle={styles.inputOutline}
+                  />
+                </View>
+
+                <DatePickerField
+                  label="Start lent"
+                  hint="When you first lent them money (e.g. last month)"
+                  value={startLentDate}
+                  onChange={setStartLentDate}
+                />
+              </View>
+            ) : null}
+          </View>
+
+          <Button
+            mode="contained"
+            onPress={handleSave}
+            loading={saving}
+            disabled={saving}
+            style={styles.button}
+            contentStyle={styles.buttonContent}
+            buttonColor={colors.primary}
+            icon="check"
+          >
+            Save contact
+          </Button>
+        </View>
+      </ScrollView>
   );
 }
 

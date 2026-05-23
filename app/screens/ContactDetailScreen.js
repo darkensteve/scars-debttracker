@@ -1,7 +1,8 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card, IconButton, Text } from 'react-native-paper';
+import { useAppMessage } from '../context/AppMessageContext';
 import { useDebt } from '../context/DebtContext';
 import { getContactHistorySummary } from '../utils/contactHistory';
 import { formatDate, formatDateTime, formatMoney, TRANSACTION_LABELS } from '../utils/format';
@@ -27,6 +28,7 @@ function SummaryPill({ label, value }) {
 
 export default function ContactDetailScreen({ route, navigation }) {
   const { contactId } = route.params;
+  const { showMessage, showConfirm } = useAppMessage();
   const {
     getContactById,
     getTransactionsForContact,
@@ -89,25 +91,22 @@ export default function ContactDetailScreen({ route, navigation }) {
         : transaction.type === 'purchase'
         ? 'purchase'
         : 'payment';
-    Alert.alert(
-      'Remove this record?',
-      `This will permanently delete the ${formatted} ${typeLabel} entry and update ${contact.name}'s balance. This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteTransaction(transaction.id);
-            Alert.alert(
-              'Record removed',
-              `The ${formatted} ${typeLabel} entry has been deleted and ${contact.name}'s balance has been updated.`,
-              [{ text: 'OK' }]
-            );
-          },
-        },
-      ]
-    );
+    showConfirm({
+      variant: 'warning',
+      title: 'Remove this record?',
+      message: `This will permanently delete the ${formatted} ${typeLabel} entry and update ${contact.name}'s balance. This cannot be undone.`,
+      confirmLabel: 'Remove',
+      cancelLabel: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        await deleteTransaction(transaction.id);
+        showMessage({
+          variant: 'success',
+          title: 'Record removed',
+          message: `The ${formatted} ${typeLabel} entry has been deleted and ${contact.name}'s balance has been updated.`,
+        });
+      },
+    });
   };
 
   return (

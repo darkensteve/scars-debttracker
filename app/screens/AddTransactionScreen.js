@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Text, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ContactPicker from '../components/ContactPicker';
 import DatePickerField from '../components/DatePickerField';
+import { useAppMessage } from '../context/AppMessageContext';
 import { useDebt } from '../context/DebtContext';
 import { startOfDay } from '../lib/dateFilters';
 import { TRANSACTION_LABELS } from '../utils/format';
@@ -38,6 +39,7 @@ const TYPE_OPTIONS = [
 ];
 
 export default function AddTransactionScreen({ navigation, route }) {
+  const { showMessage } = useAppMessage();
   const { contacts, addTransaction, settings, isOffline, pendingSyncCount } = useDebt();
   const preselectedId = route?.params?.contactId;
   const [contactId, setContactId] = useState(
@@ -67,19 +69,31 @@ export default function AddTransactionScreen({ navigation, route }) {
 
   const handleAddTransaction = async () => {
     if (!contactId) {
-      Alert.alert('No contact selected', 'Please select a person before saving a transaction.', [{ text: 'OK' }]);
+      showMessage({
+        variant: 'warning',
+        title: 'No contact selected',
+        message: 'Please select a person before saving a transaction.',
+      });
       return;
     }
     const value = parseFloat(amount.replace(/,/g, ''));
     if (!value || value <= 0) {
-      Alert.alert('Invalid amount', 'Please enter a valid amount greater than zero.');
+      showMessage({
+        variant: 'warning',
+        title: 'Invalid amount',
+        message: 'Please enter a valid amount greater than zero.',
+      });
       return;
     }
     if (transactionType !== 'payment' && transactionDate) {
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
       if (transactionDate > todayEnd) {
-        Alert.alert('Invalid date', 'The date cannot be in the future.');
+        showMessage({
+          variant: 'warning',
+          title: 'Invalid date',
+          message: 'The date cannot be in the future.',
+        });
         return;
       }
     }
@@ -117,14 +131,23 @@ export default function AddTransactionScreen({ navigation, route }) {
       const { title, body } = messages[transactionType];
       const syncNote =
         isOffline || pendingSyncCount > 0
-          ? ' Saved on this phone — will sync when you have internet.'
+          ? '\n\nSaved on this phone — will sync when you are back online.'
           : '';
-      Alert.alert(title, `${body}${syncNote}`, [{ text: 'Got it' }]);
+      showMessage({
+        variant: 'success',
+        title,
+        message: `${body}${syncNote}`,
+        confirmLabel: 'Got it',
+      });
       setAmount('');
       setDescription('');
       setTransactionType('loan');
     } catch (e) {
-      Alert.alert('Something went wrong', 'The transaction could not be saved. Please try again.');
+      showMessage({
+        variant: 'error',
+        title: 'Something went wrong',
+        message: 'The transaction could not be saved. Please try again.',
+      });
     } finally {
       setSaving(false);
     }

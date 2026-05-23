@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,10 +10,12 @@ import {
 import { Button, Text, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAccount } from '../context/AccountContext';
+import { useAppMessage } from '../context/AppMessageContext';
 import { formatPhoneHint, isValidPhone } from '../lib/phoneUtils';
 import { colors } from '../theme/colors';
 
 export default function RegisterScreen({ navigation }) {
+  const { showMessage } = useAppMessage();
   const { register } = useAccount();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -29,19 +30,35 @@ export default function RegisterScreen({ navigation }) {
     const trimmedEmail = email.trim().toLowerCase();
 
     if (!trimmedName || !trimmedEmail || !password || !phone.trim()) {
-      Alert.alert('Missing fields', 'Please fill in name, email, mobile number, and password.');
+      showMessage({
+        variant: 'warning',
+        title: 'Missing fields',
+        message: 'Please fill in name, email, mobile number, and password.',
+      });
       return;
     }
     if (!isValidPhone(phone)) {
-      Alert.alert('Invalid phone', 'Enter a valid mobile number (e.g. 09171234567).');
+      showMessage({
+        variant: 'warning',
+        title: 'Invalid phone',
+        message: 'Enter a valid mobile number (e.g. 09171234567).',
+      });
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Weak password', 'Password must be at least 6 characters.');
+      showMessage({
+        variant: 'warning',
+        title: 'Weak password',
+        message: 'Password must be at least 6 characters.',
+      });
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert('Password mismatch', 'Passwords do not match.');
+      showMessage({
+        variant: 'warning',
+        title: 'Password mismatch',
+        message: 'Passwords do not match.',
+      });
       return;
     }
 
@@ -53,12 +70,18 @@ export default function RegisterScreen({ navigation }) {
         password,
         phone: phone.trim(),
       });
-      Alert.alert(
-        'Account created',
-        'Your records are saved to the cloud. Enable PIN lock in Settings for extra security when opening the app.'
-      );
+      showMessage({
+        variant: 'success',
+        title: 'Account created',
+        message:
+          'Your records are saved to the cloud. Enable PIN lock in Settings for extra security when opening the app.',
+      });
     } catch (e) {
-      Alert.alert('Registration failed', e.message || 'Could not create account. Try again.');
+      showMessage({
+        variant: 'error',
+        title: 'Registration failed',
+        message: e.message || 'Could not create account. Try again.',
+      });
     } finally {
       setLoading(false);
     }

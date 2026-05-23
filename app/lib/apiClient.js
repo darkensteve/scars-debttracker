@@ -30,6 +30,11 @@ async function request(path, options = {}) {
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (res.status === 404 && !data.message) {
+      throw new Error(
+        'This feature is not available on the server yet. Wait a few minutes after an app update, or check your internet.'
+      );
+    }
     throw new Error(data.message || `Request failed (${res.status})`);
   }
   return data;
